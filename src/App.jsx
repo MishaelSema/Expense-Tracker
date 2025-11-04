@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Transactions from './pages/Transactions';
+import NotFound from './pages/NotFound';
 
 function PrivateRoute({ children }) {
   const { currentUser } = useAuth();
@@ -51,6 +52,7 @@ function AppRoutes() {
         }
       />
       <Route path="/" element={<Navigate to="/dashboard" />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
