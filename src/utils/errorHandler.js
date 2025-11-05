@@ -126,12 +126,16 @@ export function getFirestoreErrorMessage(error, operation = 'perform this action
   }
   
   // For update/delete operations, NOT_FOUND means the document was already deleted
+  // Silently handle this as it's often a race condition or already handled
   if ((error.code === 'not-found' || error.code === 'NOT_FOUND') && (operation === 'update' || operation === 'delete')) {
-    return 'This item was already deleted or does not exist.';
+    console.log('NOT_FOUND for update/delete - item was already deleted');
+    return null; // Don't show error - item was likely already deleted
   }
   
   if ((error.code === 'not-found' || error.code === 'NOT_FOUND')) {
-    return 'The requested data was not found. This might be because the collection is empty or the item was deleted.';
+    // For other operations, silently ignore to prevent user confusion
+    console.log('NOT_FOUND error - ignoring to prevent user confusion');
+    return null;
   }
   
   if (error.code === 'unavailable' || error.message?.includes('network')) {
