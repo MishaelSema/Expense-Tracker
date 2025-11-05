@@ -27,6 +27,7 @@ export default function Transactions() {
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, id: null });
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 
   useEffect(() => {
     if (!currentUser) {
@@ -41,6 +42,18 @@ export default function Transactions() {
     
     return () => clearTimeout(timer);
   }, [currentUser, navigate]);
+
+  // Ensure loading is set to false after a timeout as fallback
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.warn('Transactions page loading timeout - forcing render');
+        setLoading(false);
+      }
+    }, 5000); // 5 second timeout
+    
+    return () => clearTimeout(timeout);
+  }, [loading]);
 
   useEffect(() => {
     if (darkMode) {
