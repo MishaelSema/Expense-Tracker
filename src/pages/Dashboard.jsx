@@ -7,6 +7,7 @@ import SummaryCard from '../components/SummaryCard';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { getFirestoreErrorMessage } from '../utils/errorHandler';
 import { formatCurrencyWithSign } from '../utils/currency';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function Dashboard() {
   const { currentUser, logout } = useAuth();
@@ -16,6 +17,7 @@ export default function Dashboard() {
   const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') === 'true');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [error, setError] = useState('');
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 
   useEffect(() => {
     if (!currentUser) {
@@ -217,6 +219,10 @@ export default function Dashboard() {
   };
 
   const handleLogout = async () => {
+    setLogoutModalOpen(true);
+  };
+
+  const confirmLogout = async () => {
     try {
       await logout();
       navigate('/login');
@@ -279,7 +285,7 @@ export default function Dashboard() {
               <button onClick={() => navigate('/debts')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Debts</button>
               <button onClick={() => navigate('/budgets')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Budgets</button>
               <button onClick={() => navigate('/reports')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Reports</button>
-              <button onClick={handleLogout} className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md">Logout</button>
+              <button onClick={handleLogout} className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md">Logout</button>
             </div>
 
             {/* Mobile Navigation */}
@@ -338,7 +344,7 @@ export default function Dashboard() {
                       <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       Reports
                     </button>
-                    <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                    <button onClick={() => { handleLogout(); setMobileMenuOpen(false); }} className="flex items-center w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700">
                       <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                       Logout
                     </button>
@@ -473,11 +479,11 @@ export default function Dashboard() {
           </div>
 
           {/* Category Breakdown */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 min-h-[400px]">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Categories</h3>
             {categoryData.length > 0 ? (
               <>
-                <ResponsiveContainer width="100%" height={200}>
+                <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
                     <Pie
                       data={categoryData}
@@ -485,7 +491,7 @@ export default function Dashboard() {
                       cy="50%"
                       labelLine={false}
                       label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
+                      outerRadius={100}
                       fill="#8884d8"
                       dataKey="value"
                     >
@@ -497,7 +503,7 @@ export default function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="mt-4 space-y-2">
-                  {categoryData.slice(0, 3).map((cat, index) => (
+                  {categoryData.slice(0, 4).map((cat, index) => (
                     <div key={cat.name} className="flex items-center justify-between">
                       <div className="flex items-center">
                         <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
@@ -582,6 +588,17 @@ export default function Dashboard() {
             </div>
           )}
         </div>
+
+        {/* Logout Confirmation Modal */}
+        <ConfirmModal
+          isOpen={logoutModalOpen}
+          onClose={() => setLogoutModalOpen(false)}
+          onConfirm={confirmLogout}
+          title="Confirm Logout"
+          message="Are you sure you want to logout? You will need to sign in again to access your account."
+          confirmText="Logout"
+          confirmButtonColor="bg-red-600 hover:bg-red-700"
+        />
       </div>
     </div>
   );
