@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import TransactionTable from '../components/TransactionTable';
 import AddTransactionModal from '../components/AddTransactionModal';
 import SummaryCard from '../components/SummaryCard';
+import TransactionFilters from '../components/TransactionFilters';
+import Calculator from '../components/Calculator';
+import { getFirestoreErrorMessage } from '../utils/errorHandler';
+import { exportToPDF } from '../utils/exportImport';
 
 export default function Transactions() {
   const { currentUser, logout } = useAuth();
@@ -16,13 +20,24 @@ export default function Transactions() {
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') === 'true');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [error, setError] = useState('');
+  const [filters, setFilters] = useState({ type: null, category: null, startDate: null, endDate: null });
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
+  const [filteredTransactions, setFilteredTransactions] = useState([]);
 
   useEffect(() => {
     if (!currentUser) {
       navigate('/login');
       return;
     }
-    fetchTransactions();
+    
+    // Small delay to ensure auth state is fully set
+    const timer = setTimeout(() => {
+      fetchTransactions();
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, [currentUser, navigate]);
 
   useEffect(() => {
@@ -34,67 +49,108 @@ export default function Transactions() {
     localStorage.setItem('darkMode', darkMode);
   }, [darkMode]);
 
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (mobileMenuOpen && !event.target.closest('.mobile-menu-container')) {
+        setMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [mobileMenuOpen]);
+
   const fetchTransactions = async () => {
     if (!currentUser) return;
 
     try {
       setLoading(true);
+      setError('');
+      
+      // Fetch all transactions for the user (no complex queries)
+      const transactionsRef = collection(db, 'transactions');
+      const q = query(
+        transactionsRef,
+        where('userId', '==', currentUser.uid)
+      );
+
+      const querySnapshot = await getDocs(q);
+      let transactionsData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      // Sort client-side by date (descending)
+      transactionsData.sort((a, b) => {
+        const aDate = a.date?.toDate ? a.date.toDate().getTime() : (a.date ? new Date(a.date).getTime() : 0);
+        const bDate = b.date?.toDate ? b.date.toDate().getTime() : (b.date ? new Date(b.date).getTime() : 0);
+        return bDate - aDate;
+      });
+
+      // Filter for current month client-side
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       startOfMonth.setHours(0, 0, 0, 0);
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       endOfMonth.setHours(23, 59, 59, 999);
+      
+      const currentMonthTransactions = transactionsData.filter((t) => {
+        if (!t.date) return false;
+        const date = t.date.toDate ? t.date.toDate() : new Date(t.date);
+        return date >= startOfMonth && date <= endOfMonth;
+      });
 
-      const transactionsRef = collection(db, 'transactions');
-      const q = query(
-        transactionsRef,
-        where('userId', '==', currentUser.uid),
-        where('date', '>=', Timestamp.fromDate(startOfMonth)),
-        where('date', '<=', Timestamp.fromDate(endOfMonth)),
-        orderBy('date', 'desc')
-      );
-
-      const querySnapshot = await getDocs(q);
-      const transactionsData = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      setTransactions(transactionsData);
+      setTransactions(currentMonthTransactions);
+      setFilteredTransactions(currentMonthTransactions);
     } catch (error) {
       console.error('Error fetching transactions:', error);
-      // If there's an index error, try without date filter
-      if (error.code === 'failed-precondition') {
-        try {
-          const transactionsRef = collection(db, 'transactions');
-          const q = query(
-            transactionsRef,
-            where('userId', '==', currentUser.uid),
-            orderBy('date', 'desc')
-          );
-          const querySnapshot = await getDocs(q);
-          const transactionsData = querySnapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          // Filter client-side for current month
-          const now = new Date();
-          const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-          const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-          const filtered = transactionsData.filter((t) => {
-            if (!t.date) return false;
-            const date = t.date.toDate ? t.date.toDate() : new Date(t.date);
-            return date >= startOfMonth && date <= endOfMonth;
-          });
-          setTransactions(filtered);
-        } catch (fallbackError) {
-          console.error('Fallback fetch error:', fallbackError);
-        }
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      
+      // More detailed error handling
+      if (error.code === 'permission-denied') {
+        setError('Permission denied. Please make sure you are signed in and your Firestore security rules allow read access to your transactions.');
+      } else if (error.code === 'unauthenticated') {
+        setError('You must be signed in to view transactions. Please sign in and try again.');
+        navigate('/login');
+      } else {
+        setError(getFirestoreErrorMessage(error, 'fetch'));
       }
     } finally {
       setLoading(false);
     }
   };
+
+  // Apply filters
+  useEffect(() => {
+    let filtered = [...transactions];
+
+    if (filters.type) {
+      filtered = filtered.filter(t => t.type === filters.type);
+    }
+    if (filters.category) {
+      filtered = filtered.filter(t => t.category === filters.category);
+    }
+    if (filters.startDate) {
+      const startDate = new Date(filters.startDate);
+      filtered = filtered.filter(t => {
+        if (!t.date) return false;
+        const date = t.date.toDate ? t.date.toDate() : new Date(t.date);
+        return date >= startDate;
+      });
+    }
+    if (filters.endDate) {
+      const endDate = new Date(filters.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(t => {
+        if (!t.date) return false;
+        const date = t.date.toDate ? t.date.toDate() : new Date(t.date);
+        return date <= endDate;
+      });
+    }
+
+    setFilteredTransactions(filtered);
+  }, [transactions, filters]);
 
   const handleAddTransaction = async (transactionData) => {
     if (!currentUser) return;
@@ -105,7 +161,7 @@ export default function Transactions() {
       const dateObj = new Date(transactionData.date);
       dateObj.setHours(12, 0, 0, 0); // Set to noon to avoid timezone issues
       
-      await addDoc(transactionRef, {
+      const transactionPayload = {
         userId: currentUser.uid,
         date: Timestamp.fromDate(dateObj),
         type: transactionData.type,
@@ -114,15 +170,28 @@ export default function Transactions() {
         amount: transactionData.amount,
         paymentMethod: transactionData.paymentMethod,
         notes: transactionData.notes || '',
-      });
+        isRecurring: transactionData.isRecurring || false,
+        recurringFrequency: transactionData.recurringFrequency || 'monthly',
+      };
+
+      // Handle receipt upload (if using Firebase Storage, you'd upload here)
+      // For now, we'll store the file reference
+      if (transactionData.receiptFile) {
+        transactionPayload.receiptFileName = transactionData.receiptFile.name;
+        transactionPayload.receiptFileSize = transactionData.receiptFile.size;
+        // In production, upload to Firebase Storage and store URL
+      }
+
+      await addDoc(transactionRef, transactionPayload);
 
       // Refresh transactions
       await fetchTransactions();
       setIsModalOpen(false);
       setEditingTransaction(null);
+      setError('');
     } catch (error) {
       console.error('Error adding transaction:', error);
-      alert('Failed to add transaction. Please try again.');
+      setError(getFirestoreErrorMessage(error, 'add'));
     } finally {
       setActionLoading(false);
     }
@@ -152,7 +221,7 @@ export default function Transactions() {
       const dateObj = new Date(transactionData.date);
       dateObj.setHours(12, 0, 0, 0);
       
-      await updateDoc(transactionRef, {
+      const updatePayload = {
         date: Timestamp.fromDate(dateObj),
         type: transactionData.type,
         description: transactionData.description,
@@ -160,15 +229,25 @@ export default function Transactions() {
         amount: transactionData.amount,
         paymentMethod: transactionData.paymentMethod,
         notes: transactionData.notes || '',
-      });
+        isRecurring: transactionData.isRecurring || false,
+        recurringFrequency: transactionData.recurringFrequency || 'monthly',
+      };
+
+      if (transactionData.receiptFile) {
+        updatePayload.receiptFileName = transactionData.receiptFile.name;
+        updatePayload.receiptFileSize = transactionData.receiptFile.size;
+      }
+
+      await updateDoc(transactionRef, updatePayload);
 
       // Refresh transactions
       await fetchTransactions();
       setIsModalOpen(false);
       setEditingTransaction(null);
+      setError('');
     } catch (error) {
       console.error('Error updating transaction:', error);
-      alert('Failed to update transaction. Please try again.');
+      setError(getFirestoreErrorMessage(error, 'update'));
     } finally {
       setActionLoading(false);
     }
@@ -188,9 +267,10 @@ export default function Transactions() {
 
       // Refresh transactions
       await fetchTransactions();
+      setError('');
     } catch (error) {
       console.error('Error deleting transaction:', error);
-      alert('Failed to delete transaction. Please try again.');
+      setError(getFirestoreErrorMessage(error, 'delete'));
     } finally {
       setActionLoading(false);
     }
@@ -199,14 +279,15 @@ export default function Transactions() {
   const handleModalClose = () => {
     setIsModalOpen(false);
     setEditingTransaction(null);
+    setError('');
   };
 
   const calculateStats = () => {
-    const totalIncome = transactions
+    const totalIncome = filteredTransactions
       .filter((t) => t.type === 'Income')
       .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-    const totalExpenses = transactions
+    const totalExpenses = filteredTransactions
       .filter((t) => t.type === 'Expense')
       .reduce((sum, t) => sum + (t.amount || 0), 0);
 
@@ -223,12 +304,21 @@ export default function Transactions() {
     return { totalIncome, totalExpenses, balance, averageDailyExpense };
   };
 
+  const handleExportPDF = () => {
+    exportToPDF(filteredTransactions);
+  };
+
+  const handleClearFilters = () => {
+    setFilters({ type: null, category: null, startDate: null, endDate: null });
+  };
+
   const handleLogout = async () => {
     try {
       await logout();
       navigate('/login');
     } catch (error) {
       console.error('Failed to log out:', error);
+      setError('Failed to sign out. Please try again.');
     }
   };
 
@@ -266,7 +356,9 @@ export default function Transactions() {
                 Monthly Finance Tracker
               </h1>
             </div>
-            <div className="flex items-center space-x-4">
+            
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-4">
               <button
                 onClick={() => setDarkMode(!darkMode)}
                 className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -282,18 +374,73 @@ export default function Transactions() {
                   </svg>
                 )}
               </button>
+              <button onClick={() => navigate('/dashboard')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Dashboard</button>
+              <button onClick={() => navigate('/notes-todo')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Notes</button>
+              <button onClick={() => navigate('/debts')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Debts</button>
+              <button onClick={() => navigate('/budgets')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Budgets</button>
+              <button onClick={() => navigate('/reports')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Reports</button>
+              <button onClick={handleLogout} className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md">Logout</button>
+            </div>
+
+            {/* Mobile Navigation */}
+            <div className="md:hidden flex items-center space-x-2">
               <button
-                onClick={() => navigate('/dashboard')}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400"
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                title="Toggle dark mode"
               >
-                Dashboard
+                {darkMode ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                )}
               </button>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md"
-              >
-                Logout
-              </button>
+              
+              {/* Mobile Menu Dropdown */}
+              <div className="relative mobile-menu-container">
+                <button
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  className="p-2 rounded-md text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  title="Menu"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+                
+                {mobileMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-50 border border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={() => {
+                        navigate('/dashboard');
+                        setMobileMenuOpen(false);
+                      }}
+                      className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
+                      Dashboard
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleLogout();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    >
+                      <svg className="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -310,14 +457,53 @@ export default function Transactions() {
               Manage your financial transactions
             </p>
           </div>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            disabled={actionLoading}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            + Add New
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => setIsCalculatorOpen(true)} className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 hidden md:block">
+              Calculator
+            </button>
+            <button onClick={handleExportPDF} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 hidden md:block">
+              Export PDF
+            </button>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              disabled={actionLoading}
+              className="fixed bottom-6 right-6 md:relative md:bottom-auto md:right-auto z-40 w-14 h-14 md:w-auto md:h-auto md:px-4 md:py-2 bg-emerald-600 text-white rounded-full md:rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg md:shadow-none flex items-center justify-center"
+              title="Add new transaction"
+            >
+              <svg className="w-6 h-6 md:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="hidden md:inline">+ Add New</span>
+            </button>
+          </div>
         </div>
+
+        {/* Transaction Filters */}
+        <TransactionFilters filters={filters} onFilterChange={setFilters} onClearFilters={handleClearFilters} />
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium text-red-800 dark:text-red-200">{error}</p>
+              </div>
+              <button
+                onClick={() => setError('')}
+                className="ml-4 flex-shrink-0 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
+              >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -370,13 +556,25 @@ export default function Transactions() {
         {/* Transactions Table */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
           <TransactionTable 
-            transactions={transactions} 
+            transactions={filteredTransactions} 
             onEdit={handleEditTransaction}
             onDelete={handleDeleteTransaction}
             actionLoading={actionLoading}
           />
         </div>
       </div>
+
+      {/* Calculator Modal */}
+      {isCalculatorOpen && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6">
+            <button onClick={() => setIsCalculatorOpen(false)} className="absolute top-2 right-2 text-gray-400 hover:text-gray-600">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <Calculator />
+          </div>
+        </div>
+      )}
 
       {/* Add/Edit Transaction Modal */}
       <AddTransactionModal

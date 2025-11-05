@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '../utils/errorHandler';
 
 export default function Signup() {
   const [email, setEmail] = useState('');
@@ -30,7 +31,7 @@ export default function Signup() {
       await signup(email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError('Failed to create account: ' + err.message);
+      setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

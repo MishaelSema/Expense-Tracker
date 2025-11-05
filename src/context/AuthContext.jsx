@@ -16,6 +16,28 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Handle online/offline status
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      // When coming back online, Firebase auth will automatically restore the session
+      // No need to manually re-authenticate
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   function signup(email, password) {
     return createUserWithEmailAndPassword(auth, email, password);
@@ -43,6 +65,7 @@ export function AuthProvider({ children }) {
     signup,
     login,
     logout,
+    isOnline,
   };
 
   return (

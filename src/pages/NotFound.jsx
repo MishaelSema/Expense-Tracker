@@ -1,6 +1,21 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 
 export default function NotFound() {
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+
+  // Auto-redirect authenticated users to dashboard
+  useEffect(() => {
+    if (currentUser) {
+      const timer = setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentUser, navigate]);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full text-center">
@@ -12,6 +27,11 @@ export default function NotFound() {
           <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">
             Oops! The page you're looking for doesn't exist.
           </p>
+          {currentUser && (
+            <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
+              Redirecting you to dashboard...
+            </p>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -57,3 +77,6 @@ export default function NotFound() {
     </div>
   );
 }
+
+
+

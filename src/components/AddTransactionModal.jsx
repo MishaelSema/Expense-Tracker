@@ -9,8 +9,12 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, onUpdate, 
     amount: '',
     paymentMethod: '',
     notes: '',
+    isRecurring: false,
+    recurringFrequency: 'monthly', // monthly, weekly, yearly
+    receiptFile: null,
   });
   const [errors, setErrors] = useState({});
+  const [receiptPreview, setReceiptPreview] = useState(null);
 
   const categories = {
     Income: ['Initial Balance', 'Salary', 'Freelance', 'Investment', 'Gift', 'Other'],
@@ -40,7 +44,11 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, onUpdate, 
         amount: '',
         paymentMethod: '',
         notes: '',
+        isRecurring: false,
+        recurringFrequency: 'monthly',
+        receiptFile: null,
       });
+      setReceiptPreview(null);
     }
     setErrors({});
   }, [editingTransaction, isOpen]);
@@ -88,12 +96,29 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, onUpdate, 
       ...formData,
       amount: parseFloat(formData.amount),
       date: new Date(formData.date),
+      receiptFile: formData.receiptFile,
     };
 
     if (editingTransaction) {
       onUpdate(transaction);
     } else {
       onAdd(transaction);
+    }
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        setErrors({ ...errors, receiptFile: 'File size must be less than 5MB' });
+        return;
+      }
+      setFormData({ ...formData, receiptFile: file });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReceiptPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -271,6 +296,60 @@ export default function AddTransactionModal({ isOpen, onClose, onAdd, onUpdate, 
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
               placeholder="Additional notes..."
             />
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              name="isRecurring"
+              checked={formData.isRecurring}
+              onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
+              disabled={loading}
+              className="w-4 h-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500"
+            />
+            <label className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              Recurring Transaction
+            </label>
+          </div>
+
+          {formData.isRecurring && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Frequency
+              </label>
+              <select
+                name="recurringFrequency"
+                value={formData.recurringFrequency}
+                onChange={handleChange}
+                disabled={loading}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <option value="weekly">Weekly</option>
+                <option value="monthly">Monthly</option>
+                <option value="yearly">Yearly</option>
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Receipt (Optional)
+            </label>
+            <input
+              type="file"
+              accept="image/*,.pdf"
+              onChange={handleFileChange}
+              disabled={loading}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+            {errors.receiptFile && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.receiptFile}</p>
+            )}
+            {receiptPreview && (
+              <div className="mt-2">
+                <img src={receiptPreview} alt="Receipt preview" className="max-w-xs max-h-48 rounded-lg" />
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
