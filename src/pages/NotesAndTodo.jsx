@@ -4,6 +4,7 @@ import { collection, query, where, getDocs, addDoc, updateDoc, deleteDoc, doc, o
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { getFirestoreErrorMessage } from '../utils/errorHandler';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function NotesAndTodo() {
   const { currentUser, logout } = useAuth();
@@ -24,7 +25,13 @@ export default function NotesAndTodo() {
       navigate('/login');
       return;
     }
-    fetchData();
+    
+    // Small delay to ensure auth state is fully set
+    const timer = setTimeout(() => {
+      fetchData();
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, [currentUser, navigate]);
 
   useEffect(() => {
