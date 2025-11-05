@@ -18,6 +18,7 @@ export default function DebtManagement() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState(null);
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, id: null });
+  const [paymentModal, setPaymentModal] = useState({ isOpen: false, debt: null, amount: '' });
   const [formData, setFormData] = useState({
     type: 'owed', // 'owed' or 'owing'
     personName: '',
@@ -299,7 +300,107 @@ export default function DebtManagement() {
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Mobile Card View */}
+          <div className="md:hidden">
+            {debts.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                No debt records found. Add your first debt record!
+              </div>
+            ) : (
+              debts.map((debt) => {
+                const remaining = remainingAmount(debt);
+                const formatDate = (date) => {
+                  if (!date) return '-';
+                  return date.toDate ? date.toDate().toLocaleDateString() : new Date(date).toLocaleDateString();
+                };
+
+                return (
+                  <div key={debt.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4 mx-4 my-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span
+                            className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                              debt.type === 'owed'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                            }`}
+                          >
+                            {debt.type === 'owed' ? 'Owed to You' : 'You Owe'}
+                          </span>
+                        </div>
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">
+                          {debt.personName}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          {debt.reason}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2 ml-2">
+                        <button
+                          onClick={() => handleEdit(debt)}
+                          className="text-emerald-600 hover:text-emerald-900 dark:text-emerald-400 dark:hover:text-emerald-300 p-1"
+                          title="Edit debt"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => handleDelete(debt.id)}
+                          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
+                          title="Delete debt"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Total:</span>
+                        <span className="font-medium text-gray-900 dark:text-white ml-1">{formatCurrencyWithSign(debt.totalAmount, true)}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Paid:</span>
+                        <span className="font-medium text-gray-900 dark:text-white ml-1">{formatCurrencyWithSign(debt.paidAmount || 0, true)}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Remaining:</span>
+                        <span className={`font-medium ml-1 ${remaining > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                          {formatCurrencyWithSign(remaining, true)}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Due Date:</span>
+                        <span className="font-medium text-gray-900 dark:text-white ml-1">{formatDate(debt.dueDate)}</span>
+                      </div>
+                      {debt.notes && (
+                        <div className="col-span-2">
+                          <span className="text-gray-600 dark:text-gray-400">Notes:</span>
+                          <span className="text-gray-900 dark:text-white ml-1">{debt.notes}</span>
+                        </div>
+                      )}
+                    </div>
+                    {remaining > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <button
+                          onClick={() => setPaymentModal({ isOpen: true, debt, amount: '' })}
+                          className="w-full px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-sm"
+                        >
+                          Add Payment
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
@@ -397,6 +498,52 @@ export default function DebtManagement() {
           confirmText="Delete"
           confirmButtonColor="bg-red-600 hover:bg-red-700"
         />
+
+        {/* Payment Modal */}
+        {paymentModal.isOpen && paymentModal.debt && (
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-sm w-full p-6">
+              <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Add Payment</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                Remaining: {formatCurrencyWithSign(remainingAmount(paymentModal.debt), true)}
+              </p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Payment Amount (FCFA)</label>
+                  <input
+                    type="number"
+                    value={paymentModal.amount}
+                    onChange={(e) => setPaymentModal({ ...paymentModal, amount: e.target.value })}
+                    placeholder="Enter amount"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 dark:text-white"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (paymentModal.amount && parseFloat(paymentModal.amount) > 0) {
+                        handleAddPayment(paymentModal.debt, paymentModal.amount);
+                        setPaymentModal({ isOpen: false, debt: null, amount: '' });
+                      }
+                    }}
+                    className="flex-1 bg-emerald-600 text-white py-2 rounded-md hover:bg-emerald-700"
+                  >
+                    Add Payment
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentModal({ isOpen: false, debt: null, amount: '' })}
+                    className="flex-1 bg-gray-300 dark:bg-gray-700 text-gray-900 dark:text-white py-2 rounded-md"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

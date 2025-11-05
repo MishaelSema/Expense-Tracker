@@ -284,50 +284,105 @@ export default function Budgets() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {budgets.map((budget) => {
-              const spent = getSpentAmount(budget.category);
-              const remaining = budget.amount - spent;
-              const percentage = (spent / budget.amount) * 100;
+          <>
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-4">
+              {budgets.map((budget) => {
+                const spent = getSpentAmount(budget.category);
+                const remaining = budget.amount - spent;
+                const percentage = (spent / budget.amount) * 100;
 
-              return (
-                <div key={budget.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{budget.category}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{budget.period}</p>
+                return (
+                  <div key={budget.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-1">{budget.category}</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{budget.period}</p>
+                      </div>
+                      <button
+                        onClick={() => handleDelete(budget.id)}
+                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 p-1"
+                        title="Delete budget"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
-                    <button onClick={() => handleDelete(budget.id)} className="text-red-600 hover:text-red-800">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                    <div className="grid grid-cols-2 gap-3 text-sm mb-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Budget:</span>
+                        <span className="font-medium text-gray-900 dark:text-white ml-1">{formatCurrencyWithSign(budget.amount, true)}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600 dark:text-gray-400">Spent:</span>
+                        <span className="font-medium text-gray-900 dark:text-white ml-1">{formatCurrencyWithSign(spent, false)}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-gray-600 dark:text-gray-400">Remaining:</span>
+                        <span className={`font-medium ml-1 ${remaining >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {formatCurrencyWithSign(remaining, true)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-2">
+                      <div
+                        className={`h-2 rounded-full ${percentage > 100 ? 'bg-red-500' : percentage > 80 ? 'bg-yellow-500' : 'bg-emerald-500'}`}
+                        style={{ width: `${Math.min(percentage, 100)}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{percentage.toFixed(1)}% used</p>
                   </div>
-                  <div className="mb-4">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Budget</span>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">{formatCurrencyWithSign(budget.amount, true)}</span>
+                );
+              })}
+            </div>
+
+            {/* Desktop Grid View */}
+            <div className="hidden md:grid grid-cols-2 lg:grid-cols-3 gap-6">
+              {budgets.map((budget) => {
+                const spent = getSpentAmount(budget.category);
+                const remaining = budget.amount - spent;
+                const percentage = (spent / budget.amount) * 100;
+
+                return (
+                  <div key={budget.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{budget.category}</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{budget.period}</p>
+                      </div>
+                      <button onClick={() => handleDelete(budget.id)} className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
                     </div>
-                    <div className="flex justify-between mb-2">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Spent</span>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">{formatCurrencyWithSign(spent, false)}</span>
+                    <div className="mb-4">
+                      <div className="flex justify-between mb-2">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Budget</span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">{formatCurrencyWithSign(budget.amount, true)}</span>
+                      </div>
+                      <div className="flex justify-between mb-2">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Spent</span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">{formatCurrencyWithSign(spent, false)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Remaining</span>
+                        <span className={`text-sm font-medium ${remaining >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {formatCurrencyWithSign(remaining, true)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Remaining</span>
-                      <span className={`text-sm font-medium ${remaining >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {formatCurrencyWithSign(remaining, true)}
-                      </span>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full ${percentage > 100 ? 'bg-red-500' : percentage > 80 ? 'bg-yellow-500' : 'bg-emerald-500'}`}
+                        style={{ width: `${Math.min(percentage, 100)}%` }}
+                      ></div>
                     </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{percentage.toFixed(1)}% used</p>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${percentage > 100 ? 'bg-red-500' : percentage > 80 ? 'bg-yellow-500' : 'bg-emerald-500'}`}
-                      style={{ width: `${Math.min(percentage, 100)}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{percentage.toFixed(1)}% used</p>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </>
         )}
 
         {/* Modal */}
