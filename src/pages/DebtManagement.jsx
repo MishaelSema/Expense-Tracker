@@ -407,43 +407,51 @@ export default function DebtManagement() {
 
           {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700" style={{ tableLayout: 'auto', minWidth: '1000px' }}>
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Person</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Reason</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Paid</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Remaining</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Due Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap" style={{ minWidth: '120px' }}>Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap" style={{ minWidth: '100px' }}>Person</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap" style={{ minWidth: '150px' }}>Reason</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap" style={{ minWidth: '120px' }}>Total</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap" style={{ minWidth: '120px' }}>Paid</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap" style={{ minWidth: '120px' }}>Remaining</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap" style={{ minWidth: '110px' }}>Due Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap" style={{ minWidth: '120px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {debts.map((debt) => (
-                  <tr key={debt.id}>
-                    <td>
-                      <span className={`px-2 py-1 text-xs rounded-full ${debt.type === 'owed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
-                        {debt.type === 'owed' ? 'Owed to You' : 'You Owe'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">{debt.personName}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">{debt.reason}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">{formatCurrencyWithSign(debt.totalAmount, true)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">{formatCurrencyWithSign(debt.paidAmount || 0, true)}</td>
-                    <td className={`px-6 py-4 text-sm font-medium ${remainingAmount(debt) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                      {formatCurrencyWithSign(remainingAmount(debt), true)}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                      {debt.dueDate ? (debt.dueDate.toDate ? debt.dueDate.toDate().toLocaleDateString() : new Date(debt.dueDate).toLocaleDateString()) : '-'}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <button onClick={() => handleEdit(debt)} className="text-emerald-600 hover:text-emerald-900 mr-2">Edit</button>
-                      <button onClick={() => handleDelete(debt.id)} className="text-red-600 hover:text-red-900">Delete</button>
+                {debts.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                      No debt records found. Add your first debt record!
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  debts.map((debt) => (
+                    <tr key={debt.id}>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs rounded-full ${debt.type === 'owed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
+                          {debt.type === 'owed' ? 'Owed to You' : 'You Owe'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-900 dark:text-white whitespace-nowrap">{debt.personName}</td>
+                      <td className="px-4 py-4 text-sm text-gray-900 dark:text-white">{debt.reason}</td>
+                      <td className="px-4 py-4 text-sm text-gray-900 dark:text-white whitespace-nowrap">{formatCurrencyWithSign(debt.totalAmount, true)}</td>
+                      <td className="px-4 py-4 text-sm text-gray-900 dark:text-white whitespace-nowrap">{formatCurrencyWithSign(debt.paidAmount || 0, true)}</td>
+                      <td className={`px-4 py-4 text-sm font-medium whitespace-nowrap ${remainingAmount(debt) > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                        {formatCurrencyWithSign(remainingAmount(debt), true)}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                        {debt.dueDate ? (debt.dueDate.toDate ? debt.dueDate.toDate().toLocaleDateString() : new Date(debt.dueDate).toLocaleDateString()) : '-'}
+                      </td>
+                      <td className="px-4 py-4 text-sm whitespace-nowrap">
+                        <button onClick={() => handleEdit(debt)} className="text-emerald-600 hover:text-emerald-900 dark:text-emerald-400 dark:hover:text-emerald-300 mr-2">Edit</button>
+                        <button onClick={() => handleDelete(debt.id)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">Delete</button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

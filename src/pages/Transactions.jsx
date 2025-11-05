@@ -42,6 +42,13 @@ export default function Transactions() {
     return () => clearTimeout(timer);
   }, [currentUser, navigate]);
 
+  // Also fetch when component mounts if user is already available
+  useEffect(() => {
+    if (currentUser && transactions.length === 0 && !loading) {
+      fetchTransactions();
+    }
+  }, []);
+
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -121,6 +128,10 @@ export default function Transactions() {
           setError(errorMessage);
         }
       }
+      
+      // Set empty arrays to prevent blank page
+      setTransactions([]);
+      setFilteredTransactions([]);
     } finally {
       setLoading(false);
     }
