@@ -116,7 +116,10 @@ export default function Transactions() {
         setError('You must be signed in to view transactions. Please sign in and try again.');
         navigate('/login');
       } else {
-        setError(getFirestoreErrorMessage(error, 'fetch'));
+        const errorMessage = getFirestoreErrorMessage(error, 'fetch');
+        if (errorMessage) {
+          setError(errorMessage);
+        }
       }
     } finally {
       setLoading(false);

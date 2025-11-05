@@ -99,10 +99,16 @@ export default function Dashboard() {
           setTransactions(filtered);
         } catch (fallbackError) {
           console.error('Fallback fetch error:', fallbackError);
-          setError(getFirestoreErrorMessage(fallbackError, 'fetch'));
+          const errorMessage = getFirestoreErrorMessage(fallbackError, 'fetch');
+          if (errorMessage) {
+            setError(errorMessage);
+          }
         }
       } else {
-        setError(getFirestoreErrorMessage(error, 'fetch'));
+        const errorMessage = getFirestoreErrorMessage(error, 'fetch');
+        if (errorMessage) {
+          setError(errorMessage);
+        }
       }
     } finally {
       setLoading(false);

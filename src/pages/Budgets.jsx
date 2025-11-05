@@ -84,7 +84,10 @@ export default function Budgets() {
       });
       setTransactions(currentMonthTransactions);
     } catch (error) {
-      setError(getFirestoreErrorMessage(error, 'fetch'));
+      const errorMessage = getFirestoreErrorMessage(error, 'fetch');
+      if (errorMessage) {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
     }

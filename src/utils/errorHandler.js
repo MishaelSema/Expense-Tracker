@@ -87,7 +87,7 @@ function getErrorMessageFromCode(code) {
  * Gets a user-friendly error message for Firestore operations
  * @param {Error} error - The Firestore error object
  * @param {string} operation - The operation being performed (add, update, delete, fetch)
- * @returns {string} - User-friendly error message
+ * @returns {string|null} - User-friendly error message, or null if error should be ignored
  */
 export function getFirestoreErrorMessage(error, operation = 'perform this action') {
   const operationMessages = {
@@ -99,6 +99,16 @@ export function getFirestoreErrorMessage(error, operation = 'perform this action
 
   const action = operationMessages[operation] || operation;
   
+  // Log error details for debugging
+  if (error.code === 'not-found' || error.code === 'NOT_FOUND') {
+    console.log('NOT_FOUND error:', {
+      code: error.code,
+      message: error.message,
+      operation: operation,
+      stack: error.stack
+    });
+  }
+  
   if (error.code === 'permission-denied') {
     return 'You do not have permission to ' + action + '. Please sign in again.';
   }
@@ -107,7 +117,19 @@ export function getFirestoreErrorMessage(error, operation = 'perform this action
     return 'You must be signed in to ' + action + '. Please sign in and try again.';
   }
   
-  if (error.code === 'not-found' || error.code === 'NOT_FOUND') {
+  // For fetch operations, empty collections are normal - don't show error
+  // getDocs queries don't throw NOT_FOUND for empty collections, but if we get it, ignore it
+  if ((error.code === 'not-found' || error.code === 'NOT_FOUND') && operation === 'fetch') {
+    console.log('Ignoring NOT_FOUND error for fetch operation (empty collection is normal)');
+    return null; // Return null to indicate this error should be ignored
+  }
+  
+  // For update/delete operations, NOT_FOUND means the document was already deleted
+  if ((error.code === 'not-found' || error.code === 'NOT_FOUND') && (operation === 'update' || operation === 'delete')) {
+    return 'This item was already deleted or does not exist.';
+  }
+  
+  if ((error.code === 'not-found' || error.code === 'NOT_FOUND')) {
     return 'The requested data was not found. This might be because the collection is empty or the item was deleted.';
   }
   
