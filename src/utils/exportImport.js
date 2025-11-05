@@ -45,8 +45,7 @@ export function exportToCSV(transactions, filename = 'transactions') {
 // Export transactions to PDF
 export function exportToPDF(transactions, filename = 'transactions') {
   if (transactions.length === 0) {
-    alert('No transactions to export');
-    return;
+    throw new Error('No transactions to export');
   }
 
   // For PDF, we'll use window.print() with a styled table

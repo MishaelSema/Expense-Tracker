@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { getFirestoreErrorMessage } from '../utils/errorHandler';
 import { formatCurrencyWithSign } from '../utils/currency';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function DebtManagement() {
   const { currentUser, logout } = useAuth();
@@ -16,6 +17,7 @@ export default function DebtManagement() {
   const [error, setError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDebt, setEditingDebt] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, id: null });
   const [formData, setFormData] = useState({
     type: 'owed', // 'owed' or 'owing'
     personName: '',
@@ -105,12 +107,18 @@ export default function DebtManagement() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this debt record?')) return;
+    setConfirmModal({ isOpen: true, id });
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmModal.id) return;
     try {
-      await deleteDoc(doc(db, 'debts', id));
+      await deleteDoc(doc(db, 'debts', confirmModal.id));
       fetchDebts();
+      setConfirmModal({ isOpen: false, id: null });
     } catch (error) {
       setError(getFirestoreErrorMessage(error, 'delete'));
+      setConfirmModal({ isOpen: false, id: null });
     }
   };
 
@@ -160,8 +168,7 @@ export default function DebtManagement() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center">
-            <img src="/favicon-96x96.png" alt="Monthly Finance Tracker" className="h-8 w-8 sm:hidden" />
-            <h1 className="hidden sm:block text-xl font-bold text-gray-900 dark:text-white">Monthly Finance Tracker</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Monthly Finance Tracker</h1>
           </div>
           <div className="hidden md:flex items-center space-x-4">
             <button
@@ -336,38 +343,38 @@ export default function DebtManagement() {
         {isModalOpen && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center p-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6">
-              <h3 className="text-xl font-semibold mb-4">{editingDebt ? 'Edit Debt' : 'Add Debt Record'}</h3>
+              <h3 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">{editingDebt ? 'Edit Debt' : 'Add Debt Record'}</h3>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Type</label>
-                  <select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} className="w-full px-3 py-2 border rounded-md">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+                  <select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 dark:text-white">
                     <option value="owed">Money Owed to You</option>
                     <option value="owing">Money You Owe</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Person Name</label>
-                  <input type="text" value={formData.personName} onChange={(e) => setFormData({...formData, personName: e.target.value})} required className="w-full px-3 py-2 border rounded-md" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Person Name</label>
+                  <input type="text" value={formData.personName} onChange={(e) => setFormData({...formData, personName: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 dark:text-white" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Reason</label>
-                  <input type="text" value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} required className="w-full px-3 py-2 border rounded-md" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reason</label>
+                  <input type="text" value={formData.reason} onChange={(e) => setFormData({...formData, reason: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 dark:text-white" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Total Amount (FCFA)</label>
-                  <input type="number" value={formData.totalAmount} onChange={(e) => setFormData({...formData, totalAmount: e.target.value})} required className="w-full px-3 py-2 border rounded-md" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total Amount (FCFA)</label>
+                  <input type="number" value={formData.totalAmount} onChange={(e) => setFormData({...formData, totalAmount: e.target.value})} required className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 dark:text-white" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Paid Amount (FCFA)</label>
-                  <input type="number" value={formData.paidAmount} onChange={(e) => setFormData({...formData, paidAmount: e.target.value})} className="w-full px-3 py-2 border rounded-md" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paid Amount (FCFA)</label>
+                  <input type="number" value={formData.paidAmount} onChange={(e) => setFormData({...formData, paidAmount: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 dark:text-white" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Due Date</label>
-                  <input type="date" value={formData.dueDate} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className="w-full px-3 py-2 border rounded-md" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</label>
+                  <input type="date" value={formData.dueDate} onChange={(e) => setFormData({...formData, dueDate: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 dark:text-white" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Notes</label>
-                  <textarea value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} className="w-full px-3 py-2 border rounded-md" />
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+                  <textarea value={formData.notes} onChange={(e) => setFormData({...formData, notes: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-md dark:bg-gray-700 dark:text-white" />
                 </div>
                 <div className="flex gap-2">
                   <button type="submit" className="flex-1 bg-emerald-600 text-white py-2 rounded-md hover:bg-emerald-700">Save</button>
@@ -377,6 +384,16 @@ export default function DebtManagement() {
             </div>
           </div>
         )}
+        
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          onClose={() => setConfirmModal({ isOpen: false, id: null })}
+          onConfirm={confirmDelete}
+          title="Delete Debt Record"
+          message="Are you sure you want to delete this debt record? This action cannot be undone."
+          confirmText="Delete"
+          confirmButtonColor="bg-red-600 hover:bg-red-700"
+        />
       </div>
     </div>
   );

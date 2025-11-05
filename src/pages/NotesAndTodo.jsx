@@ -148,10 +148,7 @@ export default function NotesAndTodo() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center">
-            <img src="/favicon-96x96.png" alt="Monthly Finance Tracker" className="h-8 w-8 sm:hidden" />
-            <h1 className="hidden sm:block text-xl font-bold text-gray-900 dark:text-white">
-              Monthly Finance Tracker
-            </h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Monthly Finance Tracker</h1>
           </div>
           <div className="hidden md:flex items-center space-x-4">
             <button

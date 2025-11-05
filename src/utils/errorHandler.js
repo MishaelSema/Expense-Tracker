@@ -107,6 +107,10 @@ export function getFirestoreErrorMessage(error, operation = 'perform this action
     return 'You must be signed in to ' + action + '. Please sign in and try again.';
   }
   
+  if (error.code === 'not-found' || error.code === 'NOT_FOUND') {
+    return 'The requested data was not found. This might be because the collection is empty or the item was deleted.';
+  }
+  
   if (error.code === 'unavailable' || error.message?.includes('network')) {
     return 'Unable to ' + action + ' due to network issues. Please check your connection and try again.';
   }

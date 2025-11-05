@@ -140,8 +140,7 @@ export default function Reports() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center">
-            <img src="/favicon-96x96.png" alt="Monthly Finance Tracker" className="h-8 w-8 sm:hidden" />
-            <h1 className="hidden sm:block text-xl font-bold text-gray-900 dark:text-white">Monthly Finance Tracker</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Monthly Finance Tracker</h1>
           </div>
           <div className="hidden md:flex items-center space-x-4">
             <button
@@ -244,21 +243,21 @@ export default function Reports() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6 flex justify-between items-center flex-wrap gap-4">
+        <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Financial Reports</h2>
-          <div className="flex gap-4">
-            <select value={reportType} onChange={(e) => setReportType(e.target.value)} className="px-4 py-2 border rounded-lg">
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <select value={reportType} onChange={(e) => setReportType(e.target.value)} className="flex-1 sm:flex-none min-w-[120px] px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-700 dark:text-white">
               <option value="monthly">Monthly</option>
               <option value="yearly">Yearly</option>
             </select>
             {reportType === 'monthly' ? (
-              <select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))} className="px-4 py-2 border rounded-lg">
+              <select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value))} className="flex-1 sm:flex-none min-w-[140px] px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-700 dark:text-white">
                 {[...Array(12)].map((_, i) => (
                   <option key={i} value={i}>{['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][i]}</option>
                 ))}
               </select>
             ) : null}
-            <select value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))} className="px-4 py-2 border rounded-lg">
+            <select value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value))} className="flex-1 sm:flex-none min-w-[100px] px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-700 dark:text-white">
               {[...Array(10)].map((_, i) => {
                 const year = 2025 + i; // Start from 2025 and go forward
                 return <option key={year} value={year}>{year}</option>;
@@ -310,7 +309,7 @@ export default function Reports() {
 
             {reportType === 'yearly' && monthlyData.length > 0 && (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
-                <h3 className="text-lg font-semibold mb-4">Monthly Overview</h3>
+                <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Monthly Overview</h3>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={monthlyData}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -328,7 +327,7 @@ export default function Reports() {
             {categoryChartData.length > 0 && (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-                  <h3 className="text-lg font-semibold mb-4">Expenses by Category</h3>
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Expenses by Category</h3>
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie data={categoryChartData} cx="50%" cy="50%" labelLine={false} label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`} outerRadius={80} fill="#8884d8" dataKey="value">
@@ -339,7 +338,7 @@ export default function Reports() {
                   </ResponsiveContainer>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
-                  <h3 className="text-lg font-semibold mb-4">Category Breakdown</h3>
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Category Breakdown</h3>
                   <div className="space-y-2">
                     {categoryChartData.map((cat, index) => (
                       <div key={cat.name} className="flex items-center justify-between">

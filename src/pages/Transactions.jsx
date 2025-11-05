@@ -8,6 +8,7 @@ import AddTransactionModal from '../components/AddTransactionModal';
 import SummaryCard from '../components/SummaryCard';
 import TransactionFilters from '../components/TransactionFilters';
 import Calculator from '../components/Calculator';
+import ConfirmModal from '../components/ConfirmModal';
 import { getFirestoreErrorMessage } from '../utils/errorHandler';
 import { exportToPDF } from '../utils/exportImport';
 
@@ -25,6 +26,7 @@ export default function Transactions() {
   const [filters, setFilters] = useState({ type: null, category: null, startDate: null, endDate: null });
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, id: null });
 
   useEffect(() => {
     if (!currentUser) {
@@ -254,19 +256,20 @@ export default function Transactions() {
   };
 
   const handleDeleteTransaction = async (transactionId) => {
-    if (!window.confirm('Are you sure you want to delete this transaction?')) {
-      return;
-    }
+    setConfirmModal({ isOpen: true, id: transactionId });
+  };
 
-    if (!currentUser) return;
+  const confirmDelete = async () => {
+    if (!confirmModal.id || !currentUser) return;
 
     try {
       setActionLoading(true);
-      const transactionRef = doc(db, 'transactions', transactionId);
+      const transactionRef = doc(db, 'transactions', confirmModal.id);
       await deleteDoc(transactionRef);
 
       // Refresh transactions
       await fetchTransactions();
+      setConfirmModal({ isOpen: false, id: null });
       setError('');
     } catch (error) {
       console.error('Error deleting transaction:', error);
@@ -305,7 +308,11 @@ export default function Transactions() {
   };
 
   const handleExportPDF = () => {
-    exportToPDF(filteredTransactions);
+    try {
+      exportToPDF(filteredTransactions);
+    } catch (error) {
+      setError(error.message || 'Failed to export PDF. Please try again.');
+    }
   };
 
   const handleClearFilters = () => {
@@ -347,14 +354,7 @@ export default function Transactions() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">
-              <img 
-                src="/favicon-96x96.png" 
-                alt="Monthly Finance Tracker" 
-                className="h-8 w-8 sm:hidden"
-              />
-              <h1 className="hidden sm:block text-xl font-bold text-gray-900 dark:text-white">
-                Monthly Finance Tracker
-              </h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Monthly Finance Tracker</h1>
             </div>
             
             {/* Desktop Navigation */}
@@ -375,6 +375,7 @@ export default function Transactions() {
                 )}
               </button>
               <button onClick={() => navigate('/dashboard')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Dashboard</button>
+              <button onClick={() => navigate('/transactions')} className="px-4 py-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 font-semibold">Transactions</button>
               <button onClick={() => navigate('/notes-todo')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Notes</button>
               <button onClick={() => navigate('/debts')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Debts</button>
               <button onClick={() => navigate('/budgets')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Budgets</button>
@@ -584,6 +585,17 @@ export default function Transactions() {
         onUpdate={handleUpdateTransaction}
         editingTransaction={editingTransaction}
         loading={actionLoading}
+      />
+
+      {/* Confirm Delete Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ isOpen: false, id: null })}
+        onConfirm={confirmDelete}
+        title="Delete Transaction"
+        message="Are you sure you want to delete this transaction? This action cannot be undone."
+        confirmText="Delete"
+        confirmButtonColor="bg-red-600 hover:bg-red-700"
       />
     </div>
   );
