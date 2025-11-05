@@ -256,11 +256,12 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Navbar */}
-      <nav className="bg-white dark:bg-gray-800 shadow-md">
+      <nav className="sticky top-0 z-50 bg-white dark:bg-gray-800 shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Monthly Finance Tracker</h1>
+              <h1 className="hidden md:block text-xl font-bold text-gray-900 dark:text-white">Finance Tracker</h1>
+              <h1 className="md:hidden text-xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
             </div>
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-4">
