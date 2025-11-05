@@ -14,6 +14,7 @@ export default function NotesAndTodo() {
   const [darkMode, setDarkMode] = useState(localStorage.getItem('darkMode') === 'true');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [error, setError] = useState('');
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [newNote, setNewNote] = useState('');
   const [newTodo, setNewTodo] = useState('');
   const [activeTab, setActiveTab] = useState('notes');
@@ -137,6 +138,10 @@ export default function NotesAndTodo() {
   };
 
   const handleLogout = async () => {
+    setLogoutModalOpen(true);
+  };
+
+  const confirmLogout = async () => {
     try {
       await logout();
       navigate('/login');
@@ -175,7 +180,7 @@ export default function NotesAndTodo() {
             <button onClick={() => navigate('/debts')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Debts</button>
             <button onClick={() => navigate('/budgets')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Budgets</button>
             <button onClick={() => navigate('/reports')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Reports</button>
-            <button onClick={handleLogout} className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md">Logout</button>
+            <button onClick={handleLogout} className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md">Logout</button>
           </div>
           <div className="md:hidden flex items-center space-x-2">
             <button

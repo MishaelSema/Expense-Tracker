@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { getFirestoreErrorMessage } from '../utils/errorHandler';
 import { formatCurrencyWithSign } from '../utils/currency';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function Reports() {
   const { currentUser, logout } = useAuth();
@@ -18,6 +19,7 @@ export default function Reports() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear() >= 2025 ? new Date().getFullYear() : 2025);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
 
   useEffect(() => {
     if (!currentUser) {
@@ -130,6 +132,10 @@ export default function Reports() {
   const COLORS = ['#10b981', '#ef4444', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
 
   const handleLogout = async () => {
+    setLogoutModalOpen(true);
+  };
+
+  const confirmLogout = async () => {
     try {
       await logout();
       navigate('/login');
@@ -167,7 +173,7 @@ export default function Reports() {
             <button onClick={() => navigate('/debts')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Debts</button>
             <button onClick={() => navigate('/budgets')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Budgets</button>
             <button onClick={() => navigate('/reports')} className="px-4 py-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 font-semibold">Reports</button>
-            <button onClick={handleLogout} className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md">Logout</button>
+            <button onClick={handleLogout} className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md">Logout</button>
           </div>
           <div className="md:hidden flex items-center space-x-2">
             <button
@@ -359,6 +365,16 @@ export default function Reports() {
           </>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={logoutModalOpen}
+        onClose={() => setLogoutModalOpen(false)}
+        onConfirm={confirmLogout}
+        title="Confirm Logout"
+        message="Are you sure you want to logout? You will need to sign in again to access your account."
+        confirmText="Logout"
+        confirmButtonColor="bg-red-600 hover:bg-red-700"
+      />
     </div>
   );
 }

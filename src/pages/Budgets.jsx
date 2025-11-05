@@ -19,6 +19,7 @@ export default function Budgets() {
   const [editingBudget, setEditingBudget] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, id: null });
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     category: '',
     amount: '',
@@ -143,6 +144,10 @@ export default function Budgets() {
   };
 
   const handleLogout = async () => {
+    setLogoutModalOpen(true);
+  };
+
+  const confirmLogout = async () => {
     try {
       await logout();
       navigate('/login');
@@ -180,7 +185,7 @@ export default function Budgets() {
             <button onClick={() => navigate('/debts')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Debts</button>
             <button onClick={() => navigate('/budgets')} className="px-4 py-2 text-sm font-medium text-emerald-600 dark:text-emerald-400 font-semibold">Budgets</button>
             <button onClick={() => navigate('/reports')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Reports</button>
-            <button onClick={handleLogout} className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md">Logout</button>
+            <button onClick={handleLogout} className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md">Logout</button>
           </div>
           <div className="md:hidden flex items-center space-x-2">
             <button
@@ -425,6 +430,16 @@ export default function Budgets() {
           title="Delete Budget"
           message="Are you sure you want to delete this budget? This action cannot be undone."
           confirmText="Delete"
+          confirmButtonColor="bg-red-600 hover:bg-red-700"
+        />
+
+        <ConfirmModal
+          isOpen={logoutModalOpen}
+          onClose={() => setLogoutModalOpen(false)}
+          onConfirm={confirmLogout}
+          title="Confirm Logout"
+          message="Are you sure you want to logout? You will need to sign in again to access your account."
+          confirmText="Logout"
           confirmButtonColor="bg-red-600 hover:bg-red-700"
         />
       </div>

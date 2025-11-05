@@ -323,6 +323,10 @@ export default function Transactions() {
   };
 
   const handleLogout = async () => {
+    setLogoutModalOpen(true);
+  };
+
+  const confirmLogout = async () => {
     try {
       await logout();
       navigate('/login');
@@ -383,7 +387,7 @@ export default function Transactions() {
               <button onClick={() => navigate('/debts')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Debts</button>
               <button onClick={() => navigate('/budgets')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Budgets</button>
               <button onClick={() => navigate('/reports')} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-emerald-600 dark:hover:text-emerald-400">Reports</button>
-              <button onClick={handleLogout} className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md">Logout</button>
+              <button onClick={handleLogout} className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md">Logout</button>
             </div>
 
             {/* Mobile Navigation */}
@@ -598,6 +602,17 @@ export default function Transactions() {
         title="Delete Transaction"
         message="Are you sure you want to delete this transaction? This action cannot be undone."
         confirmText="Delete"
+        confirmButtonColor="bg-red-600 hover:bg-red-700"
+      />
+
+      {/* Logout Confirmation Modal */}
+      <ConfirmModal
+        isOpen={logoutModalOpen}
+        onClose={() => setLogoutModalOpen(false)}
+        onConfirm={confirmLogout}
+        title="Confirm Logout"
+        message="Are you sure you want to logout? You will need to sign in again to access your account."
+        confirmText="Logout"
         confirmButtonColor="bg-red-600 hover:bg-red-700"
       />
     </div>
