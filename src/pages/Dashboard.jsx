@@ -4,8 +4,9 @@ import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import SummaryCard from '../components/SummaryCard';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { getFirestoreErrorMessage } from '../utils/errorHandler';
+import { formatCurrencyWithSign } from '../utils/currency';
 
 export default function Dashboard() {
   const { currentUser, logout } = useAuth();
@@ -134,7 +135,28 @@ export default function Dashboard() {
     const daysPassed = new Date().getDate();
     const averageDailyExpense = daysPassed > 0 ? totalExpenses / daysPassed : 0;
 
-    return { totalIncome, totalExpenses, balance, averageDailyExpense };
+    // Calculate category breakdown
+    const categoryBreakdown = {};
+    transactions
+      .filter((t) => t.type === 'Expense')
+      .forEach((t) => {
+        categoryBreakdown[t.category] = (categoryBreakdown[t.category] || 0) + (t.amount || 0);
+      });
+
+    const categoryData = Object.entries(categoryBreakdown)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+
+    // Get recent transactions
+    const recentTransactions = transactions
+      .slice(0, 5)
+      .map((t) => ({
+        ...t,
+        date: t.date?.toDate ? t.date.toDate() : new Date(t.date),
+      }));
+
+    return { totalIncome, totalExpenses, balance, averageDailyExpense, categoryData, recentTransactions };
   };
 
   const getWeekData = () => {
@@ -204,12 +226,15 @@ export default function Dashboard() {
     }
   };
 
-  const { totalIncome, totalExpenses, balance, averageDailyExpense } = calculateStats();
+  const { totalIncome, totalExpenses, balance, averageDailyExpense, categoryData, recentTransactions } = calculateStats();
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
   ];
   const currentMonth = monthNames[new Date().getMonth()];
+  const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
   if (loading) {
     return (
@@ -327,13 +352,22 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {currentMonth} Dashboard
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Financial overview for the current month
-          </p>
+        {/* Hero Section */}
+        <div className="mb-8">
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 dark:from-emerald-600 dark:to-teal-700 rounded-2xl shadow-xl p-8 text-white">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold mb-2">Welcome Back!</h1>
+                <p className="text-emerald-50 text-lg">{currentDate}</p>
+              </div>
+              <button
+                onClick={() => navigate('/transactions')}
+                className="mt-4 md:mt-0 px-6 py-3 bg-white text-emerald-600 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-lg"
+              >
+                + Add Transaction
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Error Message */}
@@ -360,46 +394,193 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Summary Cards */}
+        {/* Summary Cards - Enhanced */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <SummaryCard
-            title="Total Income"
-            value={totalIncome}
-            color="text-green-600 dark:text-green-400"
-          />
-          <SummaryCard
-            title="Total Expenses"
-            value={totalExpenses}
-            color="text-red-600 dark:text-red-400"
-          />
-          <SummaryCard
-            title="Current Balance"
-            value={balance}
-            color={balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}
-          />
-          <SummaryCard
-            title="Avg Daily Expense"
-            value={averageDailyExpense}
-            color="text-gray-600 dark:text-gray-400"
-          />
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-green-500 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Income</h3>
+              <div className="bg-green-100 dark:bg-green-900/30 p-2 rounded-lg">
+                <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrencyWithSign(totalIncome, true)}</p>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-red-500 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Expenses</h3>
+              <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-lg">
+                <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-red-600 dark:text-red-400">{formatCurrencyWithSign(totalExpenses, false)}</p>
+          </div>
+
+          <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 ${balance >= 0 ? 'border-emerald-500' : 'border-red-500'} hover:shadow-xl transition-shadow`}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Current Balance</h3>
+              <div className={`p-2 rounded-lg ${balance >= 0 ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}>
+                <svg className={`w-6 h-6 ${balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+              </div>
+            </div>
+            <p className={`text-2xl font-bold ${balance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{formatCurrencyWithSign(balance, true)}</p>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-blue-500 hover:shadow-xl transition-shadow">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Avg Daily Expense</h3>
+              <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
+                <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{formatCurrencyWithSign(averageDailyExpense, false)}</p>
+          </div>
         </div>
 
-        {/* Chart */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Income vs Expense by Week
-          </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={getWeekData()}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="week" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="Income" fill="#10b981" />
-              <Bar dataKey="Expense" fill="#ef4444" />
-            </BarChart>
-          </ResponsiveContainer>
+        {/* Charts and Recent Transactions Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Income vs Expense Chart */}
+          <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Income vs Expense by Week</h3>
+              <span className="text-sm text-gray-500 dark:text-gray-400">{currentMonth}</span>
+            </div>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={getWeekData()}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="week" stroke="#6b7280" />
+                <YAxis stroke="#6b7280" />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px'
+                  }} 
+                />
+                <Legend />
+                <Bar dataKey="Income" fill="#10b981" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="Expense" fill="#ef4444" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Category Breakdown */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Categories</h3>
+            {categoryData.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={categoryData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="mt-4 space-y-2">
+                  {categoryData.slice(0, 3).map((cat, index) => (
+                    <div key={cat.name} className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">{cat.name}</span>
+                      </div>
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">{formatCurrencyWithSign(cat.value, false)}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <p>No expense data available</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Transactions */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Transactions</h3>
+            <button
+              onClick={() => navigate('/transactions')}
+              className="text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 font-medium"
+            >
+              View All →
+            </button>
+          </div>
+          {recentTransactions.length > 0 ? (
+            <div className="space-y-3">
+              {recentTransactions.map((transaction) => (
+                <div
+                  key={transaction.id}
+                  className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <div className="flex items-center flex-1">
+                    <div className={`p-2 rounded-lg mr-3 ${
+                      transaction.type === 'Income'
+                        ? 'bg-green-100 dark:bg-green-900/30'
+                        : 'bg-red-100 dark:bg-red-900/30'
+                    }`}>
+                      {transaction.type === 'Income' ? (
+                        <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900 dark:text-white">{transaction.description}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {transaction.category} • {transaction.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+                  <p className={`font-semibold ${
+                    transaction.type === 'Income'
+                      ? 'text-green-600 dark:text-green-400'
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {formatCurrencyWithSign(transaction.amount, transaction.type === 'Income')}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <p>No transactions yet</p>
+              <button
+                onClick={() => navigate('/transactions')}
+                className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+              >
+                Add Your First Transaction
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
