@@ -334,6 +334,16 @@ export default function NotesAndTodo() {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={logoutModalOpen}
+        onClose={() => setLogoutModalOpen(false)}
+        onConfirm={confirmLogout}
+        title="Confirm Logout"
+        message="Are you sure you want to logout? You will need to sign in again to access your account."
+        confirmText="Logout"
+        confirmButtonColor="bg-red-600 hover:bg-red-700"
+      />
     </div>
   );
 }
