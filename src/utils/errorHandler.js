@@ -101,11 +101,12 @@ export function getFirestoreErrorMessage(error, operation = 'perform this action
   
   // Log error details for debugging
   if (error.code === 'not-found' || error.code === 'NOT_FOUND') {
-    console.log('NOT_FOUND error:', {
+    console.error('NOT_FOUND error:', {
       code: error.code,
       message: error.message,
       operation: operation,
-      stack: error.stack
+      stack: error.stack,
+      name: error.name
     });
   }
   

@@ -3,7 +3,8 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  onIdTokenChanged
 } from 'firebase/auth';
 import { auth } from '../firebase';
 
@@ -18,24 +19,40 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  // Handle online/offline status
+  // Handle online/offline status and visibility changes
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      // When coming back online, Firebase auth will automatically restore the session
-      // No need to manually re-authenticate
+      // When coming back online, refresh auth token
+      if (auth.currentUser) {
+        auth.currentUser.getIdToken(true).catch((error) => {
+          console.log('Token refresh error (will retry):', error);
+        });
+      }
     };
 
     const handleOffline = () => {
       setIsOnline(false);
     };
 
+    // Handle visibility change (when user switches tabs or comes back)
+    const handleVisibilityChange = () => {
+      if (!document.hidden && auth.currentUser) {
+        // Refresh token when user comes back to the tab
+        auth.currentUser.getIdToken(true).catch((error) => {
+          console.log('Token refresh on visibility change error:', error);
+        });
+      }
+    };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
@@ -52,12 +69,31 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    // Listen for auth state changes
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
+      setLoading(false);
+    }, (error) => {
+      console.error('Auth state change error:', error);
       setLoading(false);
     });
 
-    return unsubscribe;
+    // Listen for token changes and refresh automatically
+    const unsubscribeToken = onIdTokenChanged(auth, async (user) => {
+      if (user) {
+        try {
+          // Refresh token periodically to prevent expiration
+          await user.getIdToken(true);
+        } catch (error) {
+          console.log('Token refresh error (non-critical):', error);
+        }
+      }
+    });
+
+    return () => {
+      unsubscribeAuth();
+      unsubscribeToken();
+    };
   }, []);
 
   const value = {

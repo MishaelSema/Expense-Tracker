@@ -114,6 +114,35 @@ function AppRoutes() {
 }
 
 function App() {
+  // Global error handler for unhandled errors
+  useEffect(() => {
+    const handleError = (event) => {
+      // Ignore Firebase NOT_FOUND errors that are already handled
+      if (event.error && (event.error.code === 'NOT_FOUND' || event.error.code === 'not-found')) {
+        console.log('Global NOT_FOUND error (ignoring):', event.error);
+        event.preventDefault();
+        return;
+      }
+    };
+
+    const handleUnhandledRejection = (event) => {
+      // Ignore Firebase NOT_FOUND errors that are already handled
+      if (event.reason && (event.reason.code === 'NOT_FOUND' || event.reason.code === 'not-found')) {
+        console.log('Global NOT_FOUND promise rejection (ignoring):', event.reason);
+        event.preventDefault();
+        return;
+      }
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+
   return (
     <Router>
       <AuthProvider>
