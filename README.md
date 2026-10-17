@@ -94,12 +94,28 @@ node scripts/migrate-firebase.mjs --dry-run   # preview counts, write nothing
 node scripts/migrate-firebase.mjs             # real import (add --fresh to re-run)
 ```
 
+To move a single account into its existing Ledger user (rather than creating
+users for everyone in the Firebase project):
+
+```bash
+node scripts/migrate-firebase.mjs --dry-run --email=you@example.com
+node scripts/migrate-firebase.mjs --email=you@example.com --fresh --sync-verified
+```
+
+- `--email=…` limits the run to one Firebase account and matches it to the
+  MongoDB account with the same email (reused if it already exists, so data
+  lands on the account you already have).
+- `--fresh` clears that user's existing rows first, so the import can be re-run
+  without duplicating.
+- `--sync-verified` mirrors Firebase's verified flag onto the MongoDB account.
+
 What it does:
 
 - Creates a Ledger user for every Firebase Auth account (matched by email).
   **Passwords cannot be migrated** — Firebase's hashes aren't bcrypt — so each
-  migrated user gets a random password and must use *Forgot password*. Email
-  verification state is preserved.
+  newly created user gets a random password and must use *Forgot password*.
+  Email verification state is preserved. Accounts that already exist in
+  MongoDB keep their existing password.
 - Imports `transactions`, `budgets`, `debts`, `notes` and `todos`, mapping the
   old Firestore field names to the new schemas (the exact mapping is documented
   in the script header). Budgets get `startDate`/`endDate` derived from the old

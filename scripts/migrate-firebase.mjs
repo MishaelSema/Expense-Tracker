@@ -18,9 +18,13 @@
  *         node scripts/migrate-firebase.mjs
  *
  * Flags:
- *   --dry-run   Parse + map everything and print counts; write nothing.
- *   --fresh     Delete existing Ledger data for the migrated users first, so
- *               the import can be re-run without duplicating rows.
+ *   --dry-run            Parse + map everything and print counts; write nothing.
+ *   --fresh              Delete existing Ledger data for the migrated users
+ *                        first, so the import can be re-run without duplicating.
+ *   --email=you@x.com    Migrate only this Firebase user, into the matching
+ *                        MongoDB account (reused if it already exists).
+ *   --sync-verified      If Firebase marks the address verified, mark it
+ *                        verified on the MongoDB account too.
  *
  * Field mapping (old Firestore → Ledger):
  *   transactions  userId,date,type,description,category,amount
@@ -62,6 +66,13 @@ function fail(msg) {
 const flags = new Set(process.argv.slice(2));
 const DRY_RUN = flags.has("--dry-run");
 const FRESH = flags.has("--fresh");
+
+// --email=you@example.com → migrate only this Firebase user into the matching
+//                           (existing or new) MongoDB account.
+const emailFlag = process.argv.slice(2).find((a) => a.startsWith("--email="));
+const ONLY_EMAIL = emailFlag ? emailFlag.slice("--email=".length).trim().toLowerCase() : null;
+// --sync-verified → mirror Firebase's verified flag onto the MongoDB account.
+const SYNC_VERIFIED = flags.has("--sync-verified");
 
 const env = { ...loadEnv(), ...process.env };
 const MONGODB_URI = env.MONGODB_URI;
@@ -204,17 +215,32 @@ async function main() {
   const usersCol = db.collection("users");
 
   // 1) Users ---------------------------------------------------------------
-  const authUsers = [];
-  let pageToken;
-  do {
-    const res = await auth.listUsers(1000, pageToken);
-    authUsers.push(...res.users);
-    pageToken = res.pageToken;
-  } while (pageToken);
+  let authUsers;
+  if (ONLY_EMAIL) {
+    try {
+      authUsers = [await auth.getUserByEmail(ONLY_EMAIL)];
+    } catch (e) {
+      fail(`No Firebase user with email ${ONLY_EMAIL} (${e.code || e.message}).`);
+    }
+  } else {
+    authUsers = [];
+    let pageToken;
+    do {
+      const res = await auth.listUsers(1000, pageToken);
+      authUsers.push(...res.users);
+      pageToken = res.pageToken;
+    } while (pageToken);
+  }
 
-  console.log(`Firebase users found: ${authUsers.length}`);
+  console.log(
+    ONLY_EMAIL
+      ? `Migrating Firebase user: ${ONLY_EMAIL}`
+      : `Firebase users found: ${authUsers.length}`
+  );
   const uidToId = new Map();
   let createdUsers = 0;
+  let reusedUsers = 0;
+  let syncedVerified = 0;
 
   for (const u of authUsers) {
     const email = trimStr(u.email).toLowerCase();
@@ -223,7 +249,19 @@ async function main() {
       continue;
     }
     let existing = await usersCol.findOne({ email });
-    if (!existing && !DRY_RUN) {
+    if (existing) {
+      reusedUsers++;
+      if (SYNC_VERIFIED && u.emailVerified && !existing.emailVerified && !DRY_RUN) {
+        await usersCol.updateOne(
+          { _id: existing._id },
+          { $set: { emailVerified: new Date(), updatedAt: new Date() } }
+        );
+        syncedVerified++;
+      }
+    } else if (DRY_RUN) {
+      existing = { _id: new mongoose.Types.ObjectId() };
+      createdUsers++;
+    } else {
       const random = crypto.randomBytes(32).toString("hex");
       const now = new Date();
       const res = await usersCol.insertOne({
@@ -238,13 +276,15 @@ async function main() {
       });
       existing = { _id: res.insertedId };
       createdUsers++;
-    } else if (!existing) {
-      existing = { _id: new mongoose.Types.ObjectId() };
-      createdUsers++;
     }
     uidToId.set(u.uid, existing._id);
+    console.log(`  · ${email} → ${existing._id}`);
   }
-  console.log(`  → users created: ${createdUsers}, reused: ${uidToId.size - createdUsers}\n`);
+  console.log(
+    `  → users created: ${createdUsers}, reused: ${reusedUsers}` +
+      (SYNC_VERIFIED ? `, marked verified: ${syncedVerified}` : "") +
+      "\n"
+  );
 
   // 2) Collections ---------------------------------------------------------
   const summary = [];
