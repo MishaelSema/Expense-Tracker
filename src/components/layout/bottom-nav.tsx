@@ -11,6 +11,10 @@ import { cn } from "@/lib/utils";
 /**
  * Mobile bottom tab bar — translucent material with content scrolling beneath,
  * matching iOS tab-bar behaviour. Hidden on large screens.
+ *
+ * Safe-area padding lives on the <nav> (outside the fixed-height row) so the
+ * row's height is never eaten by the home-indicator inset. Height and icon size
+ * step up at `sm` so the bar stays comfortable from small phones to tablets.
  */
 export function BottomNav({ reminderCount = 0 }: { reminderCount?: number }) {
   const pathname = usePathname();
@@ -19,11 +23,11 @@ export function BottomNav({ reminderCount = 0 }: { reminderCount?: number }) {
   return (
     <>
       <nav
-        className="lg:hidden fixed bottom-0 inset-x-0 z-50 material border-t border-[var(--separator)]"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-50 material border-t border-[var(--separator)] pb-[env(safe-area-inset-bottom)]"
         style={{ backgroundColor: "color-mix(in srgb, var(--surface) 72%, transparent)" }}
         aria-label="Primary"
       >
-        <div className="flex items-stretch h-[54px] pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto flex h-14 max-w-[600px] items-stretch sm:h-[60px]">
           {primaryNav.map((item) => {
             const active =
               pathname === item.href || pathname.startsWith(item.href + "/");
@@ -34,12 +38,12 @@ export function BottomNav({ reminderCount = 0 }: { reminderCount?: number }) {
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex-1 flex flex-col items-center justify-center gap-0.5",
+                  "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1",
                   active ? "text-[var(--accent)]" : "text-[var(--foreground-secondary)]"
                 )}
               >
-                <Icon width={22} height={22} />
-                <span className="text-[10px] font-medium tracking-apple leading-none">
+                <Icon className="h-6 w-6 sm:h-[26px] sm:w-[26px]" />
+                <span className="max-w-full truncate text-[11px] font-medium leading-none tracking-apple sm:text-[12px]">
                   {item.label}
                 </span>
               </Link>
@@ -47,11 +51,13 @@ export function BottomNav({ reminderCount = 0 }: { reminderCount?: number }) {
           })}
           <button
             onClick={() => setMoreOpen(true)}
-            className="relative flex-1 flex flex-col items-center justify-center gap-0.5 text-[var(--foreground-secondary)]"
+            className="relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 text-[var(--foreground-secondary)]"
             aria-label="More"
           >
-            <MoreIcon width={22} height={22} />
-            <span className="text-[10px] font-medium tracking-apple leading-none">More</span>
+            <MoreIcon className="h-6 w-6 sm:h-[26px] sm:w-[26px]" />
+            <span className="max-w-full truncate text-[11px] font-medium leading-none tracking-apple sm:text-[12px]">
+              More
+            </span>
           </button>
         </div>
       </nav>

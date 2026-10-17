@@ -21,7 +21,7 @@ export default async function MarketPage() {
   const [rates, news] = await Promise.all([getRates(), getNews()]);
 
   const listed = rates
-    ? Object.keys(rates)
+    ? Object.keys(rates.rates)
         .filter((code) => code !== rates.base)
         .sort((a, b) => {
           const ia = PRIORITY.indexOf(a);
