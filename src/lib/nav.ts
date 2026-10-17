@@ -8,6 +8,9 @@ import {
   NoteIcon,
   UserIcon,
   SparkleIcon,
+  BellIcon,
+  RepeatIcon,
+  CoinsIcon,
 } from "@/components/ui/icons";
 
 export const APP_NAME = "Ledger";
@@ -23,6 +26,9 @@ export const primaryNav = [
 /** Destinations reached through the "More" sheet on mobile / menu on desktop. */
 export const secondaryNav = [
   { href: "/reports", label: "Insights", icon: ChartIcon },
+  { href: "/reminders", label: "Reminders", icon: BellIcon },
+  { href: "/bills", label: "Bills", icon: RepeatIcon },
+  { href: "/market", label: "Market", icon: CoinsIcon },
   { href: "/goals", label: "Goals", icon: SparkleIcon },
   { href: "/debts", label: "Debts", icon: HandshakeIcon },
   { href: "/notes", label: "Notes and tasks", icon: NoteIcon },

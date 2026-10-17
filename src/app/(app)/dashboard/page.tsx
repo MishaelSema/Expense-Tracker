@@ -1,11 +1,21 @@
 import { getCurrentUser } from "@/lib/session";
 import { connectDB } from "@/lib/db";
 import Transaction from "@/models/Transaction";
+import Reminder from "@/models/Reminder";
 import { serializeList } from "@/lib/serialize";
 import { computeMonthStats } from "@/lib/stats";
+import { syncRemindersForUser } from "@/lib/reminders";
+import { getRates } from "@/lib/external-data";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 
 export const metadata = { title: "Overview" };
+
+const RANK: Record<string, number> = { critical: 0, warning: 1, info: 2 };
+
+function rateLabel(rate: number): string {
+  const digits = rate >= 100 ? 2 : rate >= 1 ? 4 : 6;
+  return new Intl.NumberFormat("en-GB", { maximumFractionDigits: digits }).format(rate);
+}
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -40,11 +50,49 @@ export default async function DashboardPage() {
     date: t.date,
   }));
 
+  // Refresh reminders, then surface the most urgent few on the home screen.
+  await syncRemindersForUser(String(user._id), user.currency || "XAF");
+  const reminderDocs = await Reminder.find({ userId: user._id, dismissedAt: null }).lean();
+  const reminders = serializeList<{
+    _id: string;
+    title: string;
+    body: string;
+    severity: string;
+    dueDate?: string | null;
+  }>(reminderDocs)
+    .sort((a, b) => {
+      const ra = RANK[a.severity] ?? 3;
+      const rb = RANK[b.severity] ?? 3;
+      if (ra !== rb) return ra - rb;
+      const at = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+      const bt = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+      return at - bt;
+    })
+    .slice(0, 3);
+
+  // A two-line market strip: EUR→XAF and USD→XAF (the two that matter most).
+  const rates = await getRates();
+  const marketRates: { label: string; value: string }[] = [];
+  if (rates?.rates?.XAF) {
+    marketRates.push({
+      label: "1 EUR",
+      value: `${rateLabel(rates.rates.XAF)} XAF`,
+    });
+    if (rates.rates.USD) {
+      marketRates.push({
+        label: "1 USD",
+        value: `${rateLabel(rates.rates.XAF / rates.rates.USD)} XAF`,
+      });
+    }
+  }
+
   return (
     <DashboardView
       userName={user.name}
       stats={JSON.parse(JSON.stringify(stats))}
       recent={JSON.parse(JSON.stringify(recent))}
+      reminders={JSON.parse(JSON.stringify(reminders))}
+      marketRates={marketRates}
     />
   );
 }

@@ -41,6 +41,9 @@ export async function PATCH(
       if (!description) return badRequest("Add a short description.");
       update.description = description;
     }
+    if (body.notes !== undefined) {
+      update.notes = String(body.notes).trim();
+    }
     if (body.status !== undefined) {
       if (!STATUSES.includes(String(body.status)))
         return badRequest("Choose a valid status.");

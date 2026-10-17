@@ -20,6 +20,7 @@ export interface DebtItem {
   person: string;
   amount: number;
   description: string;
+  notes?: string | null;
   dueDate?: string | null;
   status: "active" | "paid";
 }
@@ -237,7 +238,7 @@ export function DebtsView({ debts }: { debts: DebtItem[] }) {
           {visible.map((debt) => {
             const info = dueInfo(debt);
             return (
-              <CardRow key={debt._id} className="py-3">
+              <CardRow key={debt._id} className="py-3 flex-wrap items-start gap-y-2">
                 <div className="min-w-0 flex-1">
                   <p className="text-[15px] font-medium text-[var(--foreground)] truncate">
                     {debt.person}
@@ -245,21 +246,26 @@ export function DebtsView({ debts }: { debts: DebtItem[] }) {
                   <p className="text-[13px] text-[var(--foreground-secondary)] truncate">
                     {debt.description}
                   </p>
+                  {debt.notes && (
+                    <p className="mt-1 whitespace-pre-line break-words text-[13px] leading-snug text-[var(--foreground-secondary)]">
+                      {debt.notes}
+                    </p>
+                  )}
                 </div>
 
-                <div className="text-right shrink-0">
-                  <p className="text-[15px] font-semibold tabular-nums text-[var(--foreground)]">
+                <div className="ml-auto shrink-0 text-right">
+                  <p className="text-[15px] font-semibold tabular-nums text-[var(--foreground)] whitespace-nowrap">
                     {formatCurrency(debt.amount)}
                   </p>
                   <p
-                    className="text-[13px] tabular-nums"
+                    className="text-[13px] tabular-nums whitespace-nowrap"
                     style={{ color: info.color }}
                   >
                     {info.text}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-0.5 shrink-0">
+                <div className="flex w-full shrink-0 items-center justify-end gap-0.5 sm:w-auto">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -353,6 +359,7 @@ function DebtFormSheet({
   const [person, setPerson] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [notes, setNotes] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [status, setStatus] = useState<"active" | "paid">("active");
   const [saving, setSaving] = useState(false);
@@ -363,6 +370,7 @@ function DebtFormSheet({
     setPerson(debt?.person || "");
     setAmount(debt ? String(debt.amount) : "");
     setDescription(debt?.description || "");
+    setNotes(debt?.notes || "");
     setDueDate(debt?.dueDate ? debt.dueDate.slice(0, 10) : "");
     setStatus(debt?.status || "active");
     setSaving(false);
@@ -380,6 +388,7 @@ function DebtFormSheet({
           person,
           amount: Number(amount),
           description,
+          notes,
           dueDate: dueDate || null,
           status,
         }),
@@ -460,6 +469,18 @@ function DebtFormSheet({
             placeholder="What is it for?"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="debt-notes">Notes (optional)</Label>
+          <textarea
+            id="debt-notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            placeholder="Anything important to remember about this debt"
+            className="w-full min-w-0 resize-none rounded-xl bg-[var(--surface-secondary)] px-3.5 py-3 text-[16px] leading-relaxed text-[var(--foreground)] placeholder:text-[var(--foreground-secondary)] border border-transparent transition-colors focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none"
           />
         </div>
 

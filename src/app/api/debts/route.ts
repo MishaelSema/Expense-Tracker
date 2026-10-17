@@ -38,6 +38,7 @@ export async function POST(req: Request) {
     const person = String(body.person || "").trim();
     const amount = Number(body.amount);
     const description = String(body.description || "").trim();
+    const notes = body.notes ? String(body.notes).trim() : undefined;
 
     let status = "active";
     if (body.status !== undefined) {
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
       person,
       amount,
       description,
+      notes,
       dueDate,
       status,
     });

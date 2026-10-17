@@ -14,12 +14,21 @@ student-focused feature set.
   change password, delete account. Toasts on every action.
 - **Overview** — balance for the month, income vs. spending, a daily
   "safe to spend" figure, top categories, and recent activity.
-- **Activity** — full transaction list with search, income/expense filter,
-  add, edit and delete.
+- **Activity** — every transaction shown as a card in a responsive tile grid,
+  grouped by month with per-month income / expense totals, plus search and an
+  income/expense filter.
 - **Budgets** — per-category limits with a progress bar that turns amber and
   red as you approach and pass them.
 - **Goals** — savings goals with progress and quick "add money".
-- **Debts** — track what you owe and what you're owed, and mark items paid.
+- **Debts** — track what you owe and what you're owed, keep the notes attached
+  to each one, and mark items paid.
+- **Recurring bills** — weekly, monthly, yearly or one-off bills with a next
+  due date, a note, and an active toggle.
+- **Reminders** — debt due dates, upcoming bills, budget resets and overspend,
+  and goal deadlines, gathered in one inbox. Delivered in-app (bell with an
+  unread badge), as a daily email digest, and through browser push.
+- **Market** — live exchange rates (Frankfurter, no API key required) and
+  optional financial headlines.
 - **Wishlist** — things worth saving for, with prices and priority.
 - **Notes and tasks** — simple notes plus a task list with due dates.
 - **Insights** — month-over-month spending, category breakdown and a 6-month
@@ -63,7 +72,17 @@ student-focused feature set.
    SMTP_FROM=                # e.g. no-reply@yourdomain.com
    APP_URL=http://localhost:3000
    NEXT_PUBLIC_SITE_URL=http://localhost:3000   # canonical URL for SEO (sitemap, robots, metadata)
+   CRON_SECRET=              # openssl rand -hex 32 — protects GET /api/cron/reminders
+   VAPID_PUBLIC_KEY=         # npx web-push generate-vapid-keys — browser push
+   VAPID_PRIVATE_KEY=
+   VAPID_SUBJECT=mailto:you@example.com
+   NEWS_PROVIDER=            # optional: marketaux (default) or finnhub
+   NEWS_API_KEY=             # optional: headlines on /market; hidden when unset
    ```
+
+   Without `NEWS_API_KEY` the Market page still shows exchange rates and
+   simply omits headlines. Without the VAPID keys and `CRON_SECRET`, browser
+   push and the daily digest are skipped rather than failing.
 
    Contact details in the legal and support pages are set to
    `mishaelsema@gmail.com` and `+237 679 080 426`. Change them there if they
@@ -83,22 +102,26 @@ student-focused feature set.
 
 ## Migrating from the old Firebase app
 
-`scripts/migrate-firebase.mjs` copies users and data from the original
-Firestore project into MongoDB:
+`scripts/migrate-firebase-rest.mjs` copies users and data from the original
+Firestore project into MongoDB. It signs in the way the old web app did — with
+the project's *public* web config plus the account's email and password — and
+reads through the Firestore REST API, so **no service-account key is needed**:
+
+```bash
+# PowerShell
+$env:FIREBASE_EMAIL="you@example.com"
+$env:FIREBASE_PASSWORD="your-firebase-password"
+node scripts/migrate-firebase-rest.mjs --dry-run   # preview counts, write nothing
+node scripts/migrate-firebase-rest.mjs --email=you@example.com --fresh --sync-verified
+```
+
+A service-account variant, `scripts/migrate-firebase.mjs`, does the same via
+the Admin SDK if you would rather not type a password:
 
 ```bash
 npm i -D firebase-admin
 # PowerShell
 $env:FIREBASE_SERVICE_ACCOUNT="C:\path\to\serviceAccount.json"
-node scripts/migrate-firebase.mjs --dry-run   # preview counts, write nothing
-node scripts/migrate-firebase.mjs             # real import (add --fresh to re-run)
-```
-
-To move a single account into its existing Ledger user (rather than creating
-users for everyone in the Firebase project):
-
-```bash
-node scripts/migrate-firebase.mjs --dry-run --email=you@example.com
 node scripts/migrate-firebase.mjs --email=you@example.com --fresh --sync-verified
 ```
 
@@ -106,7 +129,8 @@ node scripts/migrate-firebase.mjs --email=you@example.com --fresh --sync-verifie
   MongoDB account with the same email (reused if it already exists, so data
   lands on the account you already have).
 - `--fresh` clears that user's existing rows first, so the import can be re-run
-  without duplicating.
+  without duplicating. **Always use it on a re-run** — the script inserts rows,
+  it does not upsert.
 - `--sync-verified` mirrors Firebase's verified flag onto the MongoDB account.
 
 What it does:
@@ -116,14 +140,24 @@ What it does:
   newly created user gets a random password and must use *Forgot password*.
   Email verification state is preserved. Accounts that already exist in
   MongoDB keep their existing password.
-- Imports `transactions`, `budgets`, `debts`, `notes` and `todos`, mapping the
-  old Firestore field names to the new schemas (the exact mapping is documented
-  in the script header). Budgets get `startDate`/`endDate` derived from the old
+- Imports `transactions`, `budgets`, `debts` (including the **`notes`** on each
+  debt), `notes` and `todos`, mapping the old Firestore field names to the new
+  schemas (the exact mapping is documented in the script header). Budgets keep
+  their original window, with `startDate`/`endDate` derived from the old
   `createdAt` + `period`.
+- Normalises the old category vocabulary to the nearest preset in
+  `src/lib/categories.ts`, so migrated rows render on the new screens.
 
 The old app has no `goals` or `wishlist` collections, so nothing is imported
 there. Get a service-account key from Firebase console → Project settings →
 Service accounts → *Generate new private key*, and keep it out of git.
+
+To confirm what landed in the database:
+
+```bash
+node scripts/db-stats.mjs --email=you@example.com            # per-collection counts
+node scripts/db-stats.mjs --email=you@example.com --samples  # plus sample documents
+```
 
 ## SEO & accessibility
 
@@ -167,6 +201,9 @@ npm run dev     # start the dev server
 npm run build   # production build (no secrets required — data routes are dynamic)
 npm run start   # serve the production build
 npm run lint    # ESLint
+
+node scripts/db-stats.mjs --email=you@example.com --samples   # inspect the database
+node scripts/migrate-firebase-rest.mjs --dry-run              # preview a Firebase import
 ```
 
 ## Notes

@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# secrets (Firebase service account keys etc.)
+/.secrets
+
 # vercel
 .vercel
 

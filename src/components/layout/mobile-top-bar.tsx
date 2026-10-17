@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "./theme-toggle";
+import { NotificationBell } from "./notification-bell";
 import { APP_NAME, primaryNav, secondaryNav, accountNav } from "@/lib/nav";
 
 const allNav = [...primaryNav, ...secondaryNav, ...accountNav];
@@ -11,7 +12,7 @@ const allNav = [...primaryNav, ...secondaryNav, ...accountNav];
  * Compact top bar for phones. Shows the current section name (wayfinding) with
  * the wordmark and appearance toggle. The tab bar handles the rest.
  */
-export function MobileTopBar() {
+export function MobileTopBar({ reminderCount = 0 }: { reminderCount?: number }) {
   const pathname = usePathname();
   const current =
     allNav.find((i) => pathname === i.href || pathname.startsWith(i.href + "/"))?.label ??
@@ -29,7 +30,10 @@ export function MobileTopBar() {
         <p className="absolute left-1/2 -translate-x-1/2 text-[15px] font-semibold tracking-apple">
           {current}
         </p>
-        <ThemeToggle className="w-9 h-9 flex items-center justify-center rounded-full text-[var(--foreground-secondary)] pressable" />
+        <div className="flex items-center gap-0.5">
+          <NotificationBell className="w-9 h-9 rounded-full" count={reminderCount} />
+          <ThemeToggle className="w-9 h-9 flex items-center justify-center rounded-full text-[var(--foreground-secondary)] pressable" />
+        </div>
       </div>
     </header>
   );

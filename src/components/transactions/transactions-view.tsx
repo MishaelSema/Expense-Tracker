@@ -9,13 +9,34 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Segmented } from "@/components/ui/segmented";
 import { Sheet } from "@/components/ui/sheet";
-import { SearchIcon, PlusIcon, CloseIcon } from "@/components/ui/icons";
-import { formatCurrency, formatRelative } from "@/lib/format";
+import { SearchIcon, PlusIcon, CloseIcon, EditIcon } from "@/components/ui/icons";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { toast } from "sonner";
 import { TransactionFormSheet } from "./transaction-form-sheet";
 import type { TransactionDTO } from "./types";
 
 type Filter = "all" | "income" | "expense";
+
+interface MonthGroup {
+  key: string;
+  label: string;
+  items: TransactionDTO[];
+  income: number;
+  expense: number;
+}
+
+function monthKey(date: string): string {
+  const d = new Date(date);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabel(key: string): string {
+  const [year, month] = key.split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString("en-GB", {
+    month: "long",
+    year: "numeric",
+  });
+}
 
 export function TransactionsView({ transactions }: { transactions: TransactionDTO[] }) {
   const router = useRouter();
@@ -48,6 +69,33 @@ export function TransactionsView({ transactions }: { transactions: TransactionDT
     return { income, expense };
   }, [transactions]);
 
+  // Group into months so each statement reads as its own period.
+  const groups = useMemo<MonthGroup[]>(() => {
+    const map = new Map<string, TransactionDTO[]>();
+    for (const t of filtered) {
+      const key = monthKey(t.date);
+      const bucket = map.get(key);
+      if (bucket) bucket.push(t);
+      else map.set(key, [t]);
+    }
+    return [...map.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, items]) => {
+        const income = items
+          .filter((t) => t.type === "income")
+          .reduce((s, t) => s + t.amount, 0);
+        const expense = items
+          .filter((t) => t.type === "expense")
+          .reduce((s, t) => s + t.amount, 0);
+        return { key, label: monthLabel(key), items, income, expense };
+      });
+  }, [filtered]);
+
+  function openAdd() {
+    setEditing(undefined);
+    setFormOpen(true);
+  }
+
   async function confirmDelete() {
     if (!deleting) return;
     setDeleteBusy(true);
@@ -76,14 +124,7 @@ export function TransactionsView({ transactions }: { transactions: TransactionDT
           -totals.expense
         )} out`}
         action={
-          <Button
-            size="md"
-            onClick={() => {
-              setEditing(undefined);
-              setFormOpen(true);
-            }}
-            className="lg:hidden"
-          >
+          <Button size="md" onClick={openAdd} className="lg:hidden">
             <PlusIcon width={17} height={17} />
             Add
           </Button>
@@ -91,12 +132,7 @@ export function TransactionsView({ transactions }: { transactions: TransactionDT
       />
 
       <div className="hidden lg:flex justify-end mb-4">
-        <Button
-          onClick={() => {
-            setEditing(undefined);
-            setFormOpen(true);
-          }}
-        >
+        <Button onClick={openAdd}>
           <PlusIcon width={17} height={17} />
           New transaction
         </Button>
@@ -113,7 +149,7 @@ export function TransactionsView({ transactions }: { transactions: TransactionDT
           value={filter}
           onChange={(v) => setFilter(v as Filter)}
         />
-        <div className="relative flex-1 max-w-[260px]">
+        <div className="relative flex-1 max-w-[260px] min-w-0">
           <SearchIcon
             width={16}
             height={16}
@@ -139,61 +175,91 @@ export function TransactionsView({ transactions }: { transactions: TransactionDT
             }
             action={
               transactions.length === 0 ? (
-                <Button
-                  onClick={() => {
-                    setEditing(undefined);
-                    setFormOpen(true);
-                  }}
-                >
-                  Add a transaction
-                </Button>
+                <Button onClick={openAdd}>Add a transaction</Button>
               ) : undefined
             }
           />
         </Card>
       ) : (
-        <Card className="overflow-hidden">
-          <ul className="divide-y divide-[var(--separator)]">
-            {filtered.map((t) => (
-              <li key={t.id}>
-                <div className="flex items-center gap-3 px-4 sm:px-5 min-h-[64px] py-2.5">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[16px] font-medium truncate">{t.description}</p>
-                    <p className="text-[13.5px] text-[var(--foreground-secondary)] truncate">
-                      {t.category} · {formatRelative(t.date)}
-                    </p>
-                  </div>
-                  <p
-                    className="text-[16px] font-semibold tabular-nums shrink-0"
-                    style={{ color: t.type === "income" ? "var(--success)" : "var(--foreground)" }}
-                  >
-                    {formatCurrency(t.type === "income" ? t.amount : -t.amount, {
-                      showSign: true,
-                    })}
-                  </p>
-                  <div className="flex items-center shrink-0">
-                    <button
-                      onClick={() => {
-                        setEditing(t);
-                        setFormOpen(true);
-                      }}
-                      className="h-8 px-3 rounded-full text-[13px] text-[var(--accent)] pressable"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => setDeleting(t)}
-                      aria-label="Delete transaction"
-                      className="w-8 h-8 flex items-center justify-center rounded-full text-[var(--foreground-secondary)] hover:text-[var(--danger)] pressable"
-                    >
-                      <CloseIcon width={16} height={16} />
-                    </button>
-                  </div>
+        <div className="space-y-7">
+          {groups.map((group) => (
+            <section key={group.key} aria-label={group.label}>
+              <div className="flex items-baseline justify-between gap-3 px-1 mb-3">
+                <h2 className="text-[15px] font-semibold tracking-apple text-[var(--foreground)]">
+                  {group.label}
+                </h2>
+                <div className="flex items-center gap-3 text-[12.5px] tabular-nums whitespace-nowrap">
+                  {group.income > 0 && (
+                    <span style={{ color: "var(--success)" }}>
+                      +{formatCurrency(group.income)}
+                    </span>
+                  )}
+                  {group.expense > 0 && (
+                    <span className="text-[var(--foreground-secondary)]">
+                      −{formatCurrency(group.expense)}
+                    </span>
+                  )}
                 </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {group.items.map((t) => (
+                  <div
+                    key={t.id}
+                    className="flex flex-col gap-3 rounded-2xl border border-[var(--separator)] bg-[var(--surface)] p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="min-w-0 flex-1 break-words text-[15px] font-medium leading-snug text-[var(--foreground)]">
+                        {t.description}
+                      </p>
+                      <p
+                        className="shrink-0 text-[15px] font-semibold tabular-nums whitespace-nowrap"
+                        style={{
+                          color:
+                            t.type === "income" ? "var(--success)" : "var(--foreground)",
+                        }}
+                      >
+                        {formatCurrency(t.type === "income" ? t.amount : -t.amount, {
+                          showSign: true,
+                        })}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-[var(--surface-secondary)] px-2.5 py-0.5 text-[12px] text-[var(--foreground-secondary)]">
+                        {t.category}
+                      </span>
+                      <span className="text-[12.5px] text-[var(--foreground-secondary)] whitespace-nowrap">
+                        {formatDate(t.date, "short")}
+                      </span>
+                    </div>
+
+                    <div className="mt-auto flex items-center justify-end gap-0.5 border-t border-[var(--separator)] pt-2">
+                      <button
+                        onClick={() => {
+                          setEditing(t);
+                          setFormOpen(true);
+                        }}
+                        aria-label={`Edit ${t.description}`}
+                        className="flex h-8 items-center gap-1.5 rounded-full px-3 text-[13px] text-[var(--accent)] pressable"
+                      >
+                        <EditIcon width={15} height={15} />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => setDeleting(t)}
+                        aria-label={`Delete ${t.description}`}
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-[var(--foreground-secondary)] hover:text-[var(--danger)] pressable"
+                      >
+                        <CloseIcon width={16} height={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       )}
 
       <TransactionFormSheet

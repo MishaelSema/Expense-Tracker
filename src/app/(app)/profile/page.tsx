@@ -16,6 +16,8 @@ export default async function ProfilePage() {
         emailVerified: user.emailVerified ? String(user.emailVerified) : null,
         currency: user.currency || "XAF",
         notifications: user.preferences?.notifications ?? true,
+        remindersEmail: user.preferences?.reminders?.email ?? true,
+        remindersPush: user.preferences?.reminders?.push ?? false,
       }}
     />
   );

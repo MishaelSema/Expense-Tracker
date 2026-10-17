@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
  * Mobile bottom tab bar — translucent material with content scrolling beneath,
  * matching iOS tab-bar behaviour. Hidden on large screens.
  */
-export function BottomNav() {
+export function BottomNav({ reminderCount = 0 }: { reminderCount?: number }) {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -56,7 +56,11 @@ export function BottomNav() {
         </div>
       </nav>
 
-      <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} />
+      <MoreSheet
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        reminderCount={reminderCount}
+      />
     </>
   );
 }

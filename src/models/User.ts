@@ -11,6 +11,10 @@ export interface IUser extends Document {
   preferences: {
     theme: 'light' | 'dark' | 'system';
     notifications: boolean;
+    reminders: {
+      email: boolean;
+      push: boolean;
+    };
   };
   resetToken?: string;
   resetTokenExpiry?: Date;
@@ -59,6 +63,10 @@ const UserSchema = new Schema<IUser>(
       notifications: {
         type: Boolean,
         default: true,
+      },
+      reminders: {
+        email: { type: Boolean, default: true },
+        push: { type: Boolean, default: false },
       },
     },
     resetToken: String,

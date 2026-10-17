@@ -6,6 +6,7 @@ export interface IDebt extends Document {
   person: string;
   amount: number;
   description: string;
+  notes?: string;
   dueDate?: Date;
   status: 'active' | 'paid';
   createdAt: Date;
@@ -39,6 +40,7 @@ const DebtSchema = new Schema<IDebt>(
       required: true,
       trim: true,
     },
+    notes: String,
     dueDate: Date,
     status: {
       type: String,

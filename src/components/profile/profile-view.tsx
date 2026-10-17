@@ -13,6 +13,7 @@ import { PasswordInput } from "@/components/auth/password-input";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Sheet } from "@/components/ui/sheet";
 import { toast } from "sonner";
+import { enablePush, disablePush } from "@/lib/push-client";
 
 export interface ProfileUser {
   name: string;
@@ -20,6 +21,40 @@ export interface ProfileUser {
   emailVerified: string | null;
   currency: string;
   notifications: boolean;
+  remindersEmail: boolean;
+  remindersPush: boolean;
+}
+
+/** iOS-style switch, shared by the preference rows. */
+function Switch({
+  checked,
+  onChange,
+  label,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onChange}
+      className="relative w-[51px] h-[31px] rounded-full transition-colors shrink-0 disabled:opacity-50"
+      style={{ background: checked ? "var(--success)" : "var(--surface-secondary)" }}
+    >
+      <span
+        className="absolute top-0.5 left-0.5 w-[27px] h-[27px] rounded-full bg-white shadow transition-transform"
+        style={{ transform: checked ? "translateX(20px)" : "none" }}
+        aria-hidden="true"
+      />
+    </button>
+  );
 }
 
 export function ProfileView({ user }: { user: ProfileUser }) {
@@ -27,6 +62,9 @@ export function ProfileView({ user }: { user: ProfileUser }) {
 
   const [name, setName] = useState(user.name);
   const [notifications, setNotifications] = useState(user.notifications);
+  const [remindersEmail, setRemindersEmail] = useState(user.remindersEmail);
+  const [remindersPush, setRemindersPush] = useState(user.remindersPush);
+  const [pushBusy, setPushBusy] = useState(false);
   const [savingName, setSavingName] = useState(false);
 
   const [pwdOpen, setPwdOpen] = useState(false);
@@ -73,6 +111,70 @@ export function ProfileView({ user }: { user: ProfileUser }) {
     } else {
       setNotifications(!next);
       toast.error("Couldn't save that setting");
+    }
+  }
+
+  async function saveReminderPrefs(next: { email?: boolean; push?: boolean }) {
+    const res = await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reminders: next }),
+    });
+    return res.ok;
+  }
+
+  async function toggleReminderEmail() {
+    const next = !remindersEmail;
+    setRemindersEmail(next);
+    const ok = await saveReminderPrefs({ email: next });
+    if (!ok) {
+      setRemindersEmail(!next);
+      toast.error("Couldn't save that setting");
+      return;
+    }
+    toast.success(next ? "Email reminders on" : "Email reminders off");
+  }
+
+  async function toggleReminderPush() {
+    if (pushBusy) return;
+
+    // Turning off: unsubscribe in the browser, then persist.
+    if (remindersPush) {
+      setPushBusy(true);
+      try {
+        await disablePush();
+        const ok = await saveReminderPrefs({ push: false });
+        if (!ok) {
+          toast.error("Couldn't save that setting");
+          return;
+        }
+        setRemindersPush(false);
+        toast.success("Browser notifications off");
+      } finally {
+        setPushBusy(false);
+      }
+      return;
+    }
+
+    // Turning on: request permission and subscribe.
+    setPushBusy(true);
+    try {
+      const result = await enablePush();
+      if (!result.ok) {
+        toast.error(result.error || "Couldn't enable notifications");
+        return;
+      }
+      const ok = await saveReminderPrefs({ push: true });
+      if (!ok) {
+        toast.error("Couldn't save that setting");
+        return;
+      }
+      setRemindersPush(true);
+      toast.success("Browser notifications on");
+    } catch {
+      toast.error("Couldn't enable notifications");
+    } finally {
+      setPushBusy(false);
     }
   }
 
@@ -207,26 +309,55 @@ export function ProfileView({ user }: { user: ProfileUser }) {
               </Button>
             </CardRow>
             <CardRow className="justify-between">
-              <div>
+              <div className="pr-3">
                 <p className="text-[16px]">Email updates</p>
                 <p className="text-[13px] text-[var(--foreground-secondary)]">
                   Occasional product news
                 </p>
               </div>
-              <button
-                role="switch"
-                aria-checked={notifications}
-                aria-label="Email updates"
-                onClick={toggleNotifications}
-                className="relative w-[51px] h-[31px] rounded-full transition-colors shrink-0"
-                style={{ background: notifications ? "var(--success)" : "var(--surface-secondary)" }}
-              >
-                <span
-                  className="absolute top-0.5 left-0.5 w-[27px] h-[27px] rounded-full bg-white shadow transition-transform"
-                  style={{ transform: notifications ? "translateX(20px)" : "none" }}
-                  aria-hidden="true"
-                />
-              </button>
+              <Switch
+                checked={notifications}
+                onChange={toggleNotifications}
+                label="Email updates"
+              />
+            </CardRow>
+          </CardList>
+        </div>
+      </Card>
+
+      {/* Reminders */}
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle>Reminders</CardTitle>
+        </CardHeader>
+        <div className="mt-3">
+          <CardList className="border-0 rounded-none">
+            <CardRow className="justify-between">
+              <div className="pr-3">
+                <p className="text-[16px]">Email reminders</p>
+                <p className="text-[13px] text-[var(--foreground-secondary)]">
+                  A daily digest when debts, bills or budgets are due
+                </p>
+              </div>
+              <Switch
+                checked={remindersEmail}
+                onChange={toggleReminderEmail}
+                label="Email reminders"
+              />
+            </CardRow>
+            <CardRow className="justify-between">
+              <div className="pr-3">
+                <p className="text-[16px]">Browser notifications</p>
+                <p className="text-[13px] text-[var(--foreground-secondary)]">
+                  Alerts even when Ledger isn&apos;t open
+                </p>
+              </div>
+              <Switch
+                checked={remindersPush}
+                onChange={toggleReminderPush}
+                label="Browser notifications"
+                disabled={pushBusy}
+              />
             </CardRow>
           </CardList>
         </div>

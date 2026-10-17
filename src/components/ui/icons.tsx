@@ -252,3 +252,34 @@ export const SparkleIcon = (p: IconProps) => (
     <path d="M12 3.5 13.8 9l5.5 1.8-5.5 1.8L12 18l-1.8-5.4L4.7 10.8 10.2 9 12 3.5Z" />
   </Base>
 );
+
+export const RepeatIcon = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M4 12a8 8 0 0 1 13.7-5.6L20 8" />
+    <path d="M20 4v4h-4" />
+    <path d="M20 12a8 8 0 0 1-13.7 5.6L4 16" />
+    <path d="M4 20v-4h4" />
+  </Base>
+);
+
+export const NewspaperIcon = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H16a1 1 0 0 1 1 1v12a1 1 0 0 0 1 1H5a2 2 0 0 1-2-2V6.5Z" />
+    <path d="M17 8h2.2a1.8 1.8 0 0 1 1.8 1.8V17a2 2 0 0 1-2 2" />
+    <path d="M6.5 8.5h6M6.5 11.5h6M6.5 14.5h4" />
+  </Base>
+);
+
+export const CoinsIcon = (p: IconProps) => (
+  <Base {...p}>
+    <ellipse cx="9" cy="7" rx="6" ry="3" />
+    <path d="M3 7v5c0 1.7 2.7 3 6 3s6-1.3 6-3V7" />
+    <path d="M3 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5" />
+  </Base>
+);
+
+export const ChevronRightIcon = (p: IconProps) => (
+  <Base {...p}>
+    <path d="m9 5 7 7-7 7" />
+  </Base>
+);

@@ -9,6 +9,9 @@ import WishlistItem from "@/models/WishlistItem";
 import Note from "@/models/Note";
 import Todo from "@/models/Todo";
 import Goal from "@/models/Goal";
+import Bill from "@/models/Bill";
+import Reminder from "@/models/Reminder";
+import PushSubscription from "@/models/PushSubscription";
 import { serialize } from "@/lib/serialize";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +38,16 @@ export async function PATCH(req: Request) {
     if (typeof body.notifications === "boolean") {
       user.preferences = user.preferences || {};
       user.preferences.notifications = body.notifications;
+    }
+    if (body.reminders && typeof body.reminders === "object") {
+      user.preferences = user.preferences || {};
+      const current = user.preferences.reminders || { email: true, push: false };
+      user.preferences.reminders = {
+        email:
+          typeof body.reminders.email === "boolean" ? body.reminders.email : current.email,
+        push: typeof body.reminders.push === "boolean" ? body.reminders.push : current.push,
+      };
+      user.markModified("preferences");
     }
 
     await user.save();
@@ -80,6 +93,9 @@ export async function DELETE(req: Request) {
       Note.deleteMany({ userId }),
       Todo.deleteMany({ userId }),
       Goal.deleteMany({ userId }),
+      Bill.deleteMany({ userId }),
+      Reminder.deleteMany({ userId }),
+      PushSubscription.deleteMany({ userId }),
     ]);
     await User.deleteOne({ _id: userId });
 

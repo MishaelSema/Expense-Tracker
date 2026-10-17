@@ -9,7 +9,15 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { toast } from "sonner";
 
-export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function MoreSheet({
+  open,
+  onClose,
+  reminderCount = 0,
+}: {
+  open: boolean;
+  onClose: () => void;
+  reminderCount?: number;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
@@ -46,6 +54,11 @@ export function MoreSheet({ open, onClose }: { open: boolean; onClose: () => voi
                 className={active ? "text-[var(--accent)]" : "text-[var(--foreground-secondary)]"}
               />
               <span className="text-[16px] text-[var(--foreground)]">{item.label}</span>
+              {item.href === "/reminders" && reminderCount > 0 && (
+                <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[var(--danger)] px-1.5 text-[11px] font-semibold text-white">
+                  {reminderCount > 9 ? "9+" : reminderCount}
+                </span>
+              )}
               {active && (
                 <span className="ml-auto text-[13px] text-[var(--accent)]">Current</span>
               )}

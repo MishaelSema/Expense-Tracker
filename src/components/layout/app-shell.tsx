@@ -10,9 +10,11 @@ import { BottomNav } from "./bottom-nav";
 export function AppShell({
   children,
   userName,
+  reminderCount = 0,
 }: {
   children: ReactNode;
   userName?: string;
+  reminderCount?: number;
 }) {
   return (
     <div className="min-h-dvh bg-[var(--background)]">
@@ -22,15 +24,15 @@ export function AppShell({
       >
         Skip to content
       </a>
-      <TopNav userName={userName} />
-      <MobileTopBar />
+      <TopNav userName={userName} reminderCount={reminderCount} />
+      <MobileTopBar reminderCount={reminderCount} />
       <main
         id="main"
         className="mx-auto max-w-[1120px] px-4 sm:px-6 pt-5 pb-28 lg:pb-16"
       >
         {children}
       </main>
-      <BottomNav />
+      <BottomNav reminderCount={reminderCount} />
     </div>
   );
 }

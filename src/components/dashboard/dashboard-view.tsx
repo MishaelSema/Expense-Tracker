@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PlusIcon, ArrowRightIcon } from "@/components/ui/icons";
 import { formatCurrency, formatRelative } from "@/lib/format";
+import { REMINDER_SEVERITY_COLOR } from "@/lib/reminder-display";
 import type { MonthStats } from "@/lib/stats";
 import { TransactionFormSheet } from "@/components/transactions/transaction-form-sheet";
 
@@ -17,6 +18,18 @@ interface RecentItem {
   category: string;
   description: string;
   date: string;
+}
+
+interface DashboardReminder {
+  _id: string;
+  title: string;
+  body: string;
+  severity: string;
+}
+
+interface MarketRate {
+  label: string;
+  value: string;
 }
 
 function greeting() {
@@ -30,10 +43,14 @@ export function DashboardView({
   userName,
   stats,
   recent,
+  reminders = [],
+  marketRates = [],
 }: {
   userName: string;
   stats: MonthStats;
   recent: RecentItem[];
+  reminders?: DashboardReminder[];
+  marketRates?: MarketRate[];
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const firstName = userName?.split(" ")[0] || "there";
@@ -114,6 +131,67 @@ export function DashboardView({
       <Card className="p-5">
         <p className="text-[16px] leading-relaxed">{stats.insight}</p>
       </Card>
+
+      {/* Reminders needing attention */}
+      {reminders.length > 0 && (
+        <Card>
+          <div className="px-5 pt-5 flex items-center justify-between">
+            <h2 className="text-[17px] font-semibold tracking-apple">Needs attention</h2>
+            <Link
+              href="/reminders"
+              className="text-[14px] text-[var(--accent)] flex items-center gap-1 pressable"
+            >
+              View all
+              <ArrowRightIcon width={15} height={15} />
+            </Link>
+          </div>
+          <ul className="mt-3 divide-y divide-[var(--separator)]">
+            {reminders.map((r) => (
+              <li key={r._id} className="flex items-start gap-3.5 px-5 py-3.5">
+                <span
+                  className="mt-[7px] h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: REMINDER_SEVERITY_COLOR[r.severity] ?? "var(--accent)" }}
+                  aria-hidden="true"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[15px] font-medium truncate">{r.title}</p>
+                  <p className="mt-0.5 text-[13.5px] leading-snug text-[var(--foreground-secondary)]">
+                    {r.body}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {/* Rates strip */}
+      {marketRates.length > 0 && (
+        <Card>
+          <div className="px-5 pt-5 flex items-center justify-between">
+            <h2 className="text-[17px] font-semibold tracking-apple">Rates today</h2>
+            <Link
+              href="/market"
+              className="text-[14px] text-[var(--accent)] flex items-center gap-1 pressable"
+            >
+              Market
+              <ArrowRightIcon width={15} height={15} />
+            </Link>
+          </div>
+          <div className="px-5 py-4 grid grid-cols-2 gap-3">
+            {marketRates.map((r) => (
+              <div
+                key={r.label}
+                className="rounded-2xl px-4 py-3"
+                style={{ background: "var(--surface-secondary)" }}
+              >
+                <p className="text-[13px] text-[var(--foreground-secondary)]">{r.label}</p>
+                <p className="mt-0.5 text-[18px] font-semibold tabular-nums">{r.value}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Category breakdown */}
       <Card>

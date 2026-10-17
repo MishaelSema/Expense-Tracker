@@ -91,6 +91,49 @@ const toDate = (v) => {
 };
 const trimStr = (v) => (typeof v === "string" ? v.trim() : "");
 
+// Normalise the old app's category vocabulary onto the new app's presets so
+// migrated rows are selectable/editable in the new UI. Anything unrecognised
+// falls back to "Other".
+const EXPENSE_CATEGORIES = [
+  "Food",
+  "Transport",
+  "Rent",
+  "Books and supplies",
+  "Data and airtime",
+  "Health",
+  "Social",
+  "Fees",
+  "Savings",
+  "Other",
+];
+const INCOME_CATEGORIES = [
+  "Allowance",
+  "Salary",
+  "Freelance",
+  "Gift",
+  "Scholarship",
+  "Refund",
+  "Other",
+];
+const CATEGORY_MAP = {
+  // expense
+  Shopping: "Other",
+  Bills: "Other",
+  Entertainment: "Social",
+  Healthcare: "Health",
+  Education: "Books and supplies",
+  // income
+  "Initial Balance": "Other",
+  Investment: "Other",
+};
+
+function normalizeCategory(raw, type) {
+  const name = trimStr(raw);
+  const list = type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const mapped = CATEGORY_MAP[name] || name;
+  return list.includes(mapped) ? mapped : "Other";
+}
+
 function periodWindow(period, ref) {
   const d = ref instanceof Date && !isNaN(ref.getTime()) ? ref : new Date();
   const start = new Date(d);
@@ -129,13 +172,15 @@ const MAPPERS = {
   transactions(d, userId) {
     const amount = Number(d.amount);
     const valid = isFinite(amount) && amount > 0;
+    // The old app stored type as 'Income' / 'Expense' (capitalised).
+    const isIncome = String(d.type || "").trim().toLowerCase() === "income";
     return {
       valid,
       doc: {
         userId,
-        type: d.type === "income" ? "income" : "expense",
+        type: isIncome ? "income" : "expense",
         amount: valid ? amount : 0,
-        category: trimStr(d.category) || "Uncategorised",
+        category: normalizeCategory(d.category, isIncome ? "income" : "expense"),
         description: trimStr(d.description) || "Imported transaction",
         date: toDate(d.date) || new Date(),
       },
@@ -150,7 +195,7 @@ const MAPPERS = {
       valid,
       doc: {
         userId,
-        category: trimStr(d.category) || "Uncategorised",
+        category: normalizeCategory(d.category, "expense"),
         amount: valid ? amount : 0,
         period,
         ...periodWindow(period, createdAt),
@@ -171,6 +216,7 @@ const MAPPERS = {
         person: trimStr(d.personName) || "Unknown",
         amount: remaining > 0 ? remaining : total,
         description: (paid > 0 ? `${reason} (paid ${paid} of ${total})` : reason).trim(),
+        notes: trimStr(d.notes) || undefined,
         dueDate: toDate(d.dueDate),
         status: total > 0 && paid >= total ? "paid" : "active",
       },

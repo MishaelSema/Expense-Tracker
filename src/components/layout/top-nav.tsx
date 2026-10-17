@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 import { primaryNav, secondaryNav, accountNav, APP_NAME } from "@/lib/nav";
 import { ThemeToggle } from "./theme-toggle";
+import { NotificationBell } from "./notification-bell";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -13,7 +14,13 @@ import { toast } from "sonner";
  * Desktop top bar — translucent, content scrolls beneath it, apple.com-like.
  * Compact on mobile (wordmark only).
  */
-export function TopNav({ userName }: { userName?: string }) {
+export function TopNav({
+  userName,
+  reminderCount = 0,
+}: {
+  userName?: string;
+  reminderCount?: number;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
@@ -87,6 +94,7 @@ export function TopNav({ userName }: { userName?: string }) {
 
         <div className="ml-auto flex items-center gap-1">
           <ThemeToggle className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--surface-secondary)] pressable" />
+          <NotificationBell className="w-9 h-9 rounded-full hover:bg-[var(--surface-secondary)]" count={reminderCount} />
           <div className="relative">
             <button
               onClick={() => setMenuOpen((v) => !v)}
