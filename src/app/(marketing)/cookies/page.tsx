@@ -88,7 +88,7 @@ export default function CookiesPage() {
         <p>
           If we change the cookies we use, we will update this page and the date
           above. Questions:{" "}
-          <a href="mailto:privacy@ledger.app">privacy@ledger.app</a>
+          <a href="mailto:mishaelsema@gmail.com">mishaelsema@gmail.com</a>
         </p>
       </LegalSection>
     </LegalPage>

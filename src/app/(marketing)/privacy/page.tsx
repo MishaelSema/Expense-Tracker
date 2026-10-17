@@ -22,7 +22,9 @@ export default function PrivacyPage() {
         </p>
         <p>
           Contact for privacy matters:{" "}
-          <a href="mailto:privacy@ledger.app">privacy@ledger.app</a>
+          <a href="mailto:mishaelsema@gmail.com">mishaelsema@gmail.com</a>
+          {" · "}
+          <a href="tel:+237679080426">+237 679 080 426</a>
         </p>
       </LegalSection>
 
@@ -188,7 +190,7 @@ export default function PrivacyPage() {
         </ul>
         <p>
           To exercise any right, email{" "}
-          <a href="mailto:privacy@ledger.app">privacy@ledger.app</a>. We respond
+          <a href="mailto:mishaelsema@gmail.com">mishaelsema@gmail.com</a>. We respond
           within 30 days, and we will not charge you for reasonable requests. You
           may also complain to your local supervisory authority, or, in Cameroon,
           to the competent authority responsible for data protection and
@@ -224,7 +226,9 @@ export default function PrivacyPage() {
       <LegalSection heading="13. Contact">
         <p>
           Questions about this policy or your data:{" "}
-          <a href="mailto:privacy@ledger.app">privacy@ledger.app</a>
+          <a href="mailto:mishaelsema@gmail.com">mishaelsema@gmail.com</a>
+          {" · "}
+          <a href="tel:+237679080426">+237 679 080 426</a>
         </p>
       </LegalSection>
     </LegalPage>

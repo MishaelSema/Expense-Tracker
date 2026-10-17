@@ -22,7 +22,8 @@ const groups = [
     title: "Support",
     links: [
       { href: "/support", label: "Help centre" },
-      { href: "mailto:support@ledger.app", label: "Contact support" },
+      { href: "mailto:mishaelsema@gmail.com", label: "Contact support" },
+      { href: "tel:+237679080426", label: "+237 679 080 426" },
     ],
   },
 ];

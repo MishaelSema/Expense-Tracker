@@ -65,8 +65,9 @@ student-focused feature set.
    NEXT_PUBLIC_SITE_URL=http://localhost:3000   # canonical URL for SEO (sitemap, robots, metadata)
    ```
 
-   Replace `@ledger.app` email addresses in the legal/support pages with your
-   real support and privacy addresses.
+   Contact details in the legal and support pages are set to
+   `mishaelsema@gmail.com` and `+237 679 080 426`. Change them there if they
+   ever move.
 
 3. **Run**
 

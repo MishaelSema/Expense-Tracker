@@ -68,7 +68,7 @@ export default function SupportPage() {
         </CardHeader>
         <div className="mt-3">
           <CardList className="border-0 rounded-none">
-            <CardRow className="justify-between">
+            <CardRow className="flex-col items-start gap-1.5">
               <div>
                 <p className="text-[16px]">Email support</p>
                 <p className="text-[13px] text-[var(--foreground-secondary)]">
@@ -76,13 +76,27 @@ export default function SupportPage() {
                 </p>
               </div>
               <a
-                href="mailto:support@ledger.app"
-                className="text-[15px] text-[var(--accent)] pressable"
+                href="mailto:mishaelsema@gmail.com"
+                className="text-[15px] text-[var(--accent)] pressable break-all"
               >
-                support@ledger.app
+                mishaelsema@gmail.com
               </a>
             </CardRow>
-            <CardRow className="justify-between">
+            <CardRow className="flex-col items-start gap-1.5">
+              <div>
+                <p className="text-[16px]">Phone / WhatsApp</p>
+                <p className="text-[13px] text-[var(--foreground-secondary)]">
+                  Call or message us
+                </p>
+              </div>
+              <a
+                href="tel:+237679080426"
+                className="text-[15px] text-[var(--accent)] pressable"
+              >
+                +237 679 080 426
+              </a>
+            </CardRow>
+            <CardRow className="flex-col items-start gap-1.5">
               <div>
                 <p className="text-[16px]">Privacy requests</p>
                 <p className="text-[13px] text-[var(--foreground-secondary)]">
@@ -90,10 +104,10 @@ export default function SupportPage() {
                 </p>
               </div>
               <a
-                href="mailto:privacy@ledger.app"
-                className="text-[15px] text-[var(--accent)] pressable"
+                href="mailto:mishaelsema@gmail.com"
+                className="text-[15px] text-[var(--accent)] pressable break-all"
               >
-                privacy@ledger.app
+                mishaelsema@gmail.com
               </a>
             </CardRow>
           </CardList>

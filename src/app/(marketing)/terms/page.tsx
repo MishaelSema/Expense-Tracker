@@ -38,7 +38,7 @@ export default function TermsPage() {
           </li>
           <li>
             Tell us promptly at{" "}
-            <a href="mailto:support@ledger.app">support@ledger.app</a> if you
+            <a href="mailto:mishaelsema@gmail.com">mishaelsema@gmail.com</a> if you
             believe your account has been accessed without your permission.
           </li>
           <li>One person may not maintain multiple accounts to evade limits.</li>
@@ -170,7 +170,7 @@ export default function TermsPage() {
         </p>
         <p>
           Before starting legal proceedings, please contact us at{" "}
-          <a href="mailto:support@ledger.app">support@ledger.app</a> — most
+          <a href="mailto:mishaelsema@gmail.com">mishaelsema@gmail.com</a> — most
           issues can be resolved quickly and informally.
         </p>
       </LegalSection>
@@ -178,7 +178,9 @@ export default function TermsPage() {
       <LegalSection heading="12. Contact">
         <p>
           Questions about these terms:{" "}
-          <a href="mailto:support@ledger.app">support@ledger.app</a>
+          <a href="mailto:mishaelsema@gmail.com">mishaelsema@gmail.com</a>
+          {" · "}
+          <a href="tel:+237679080426">+237 679 080 426</a>
         </p>
       </LegalSection>
     </LegalPage>
