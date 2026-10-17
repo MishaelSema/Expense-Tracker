@@ -1,0 +1,171 @@
+@import "tailwindcss";
+
+/* 
+  Apple-inspired design tokens.
+  Light mode: system-white surfaces, #1d1d1f text, #0071e3 accent.
+  Dark mode: near-black surfaces, #f5f5f7 text, #0a84ff accent.
+*/
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-secondary: var(--surface-secondary);
+  --color-foreground: var(--foreground);
+  --color-foreground-secondary: var(--foreground-secondary);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --color-separator: var(--separator);
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+}
+
+:root {
+  --background: #ffffff;
+  --surface: #ffffff;
+  --surface-secondary: #f5f5f7;
+  --foreground: #1d1d1f;
+  --foreground-secondary: #6e6e73;
+  --accent: #0071e3;
+  --accent-hover: #0077ed;
+  --success: #34c759;
+  --danger: #ff3b30;
+  --warning: #ff9500;
+  --separator: rgba(0, 0, 0, 0.08);
+  --ring: rgba(0, 113, 227, 0.35);
+}
+
+.dark {
+  --background: #000000;
+  --surface: #1c1c1e;
+  --surface-secondary: #2c2c2e;
+  --foreground: #f5f5f7;
+  --foreground-secondary: #86868b;
+  --accent: #0a84ff;
+  --accent-hover: #2997ff;
+  --success: #30d158;
+  --danger: #ff453a;
+  --warning: #ff9f0a;
+  --separator: rgba(255, 255, 255, 0.12);
+  --ring: rgba(10, 132, 255, 0.4);
+}
+
+/* iOS-style color classes */
+.text-ios-blue { color: var(--accent); }
+.text-ios-green { color: var(--success); }
+.text-ios-red { color: var(--danger); }
+.text-ios-orange { color: var(--warning); }
+.bg-ios-blue { background-color: var(--accent); }
+.bg-ios-green { background-color: var(--success); }
+.bg-ios-red { background-color: var(--danger); }
+.bg-ios-orange { background-color: var(--warning); }
+
+/* Apple-specific utilities */
+.material {
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+.material-heavy {
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+}
+
+/* Touch feedback: instant highlight on pointer-down, like iOS */
+.pressable {
+  transition: transform 120ms ease-out, opacity 120ms ease-out;
+}
+.pressable:active {
+  transform: scale(0.97);
+}
+.pressable-lg:active {
+  transform: scale(0.985);
+}
+
+/* Apple-tuned typography: tighter tracking on large text, relaxed on small */
+.tracking-apple {
+  letter-spacing: -0.015em;
+}
+
+.tracking-apple-display {
+  letter-spacing: -0.025em;
+}
+
+/* Scroll edge fade for floating chrome */
+.scroll-edge {
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 24px), transparent 100%);
+  mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 24px), transparent 100%);
+}
+
+/* Skeleton shimmer */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-secondary) 25%,
+    color-mix(in srgb, var(--surface-secondary) 60%, var(--foreground) 4%) 50%,
+    var(--surface-secondary) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Respect reduced motion globally */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .pressable:active,
+  .pressable-lg:active {
+    transform: none;
+  }
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* Respect reduced transparency: solid surfaces instead of blur */
+@media (prefers-reduced-transparency: reduce) {
+  .material,
+  .material-heavy {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: var(--surface) !important;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Base headings: no eyebrow headings, hierarchy from weight + size + tracking */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--foreground);
+}
+
+::selection {
+  background: var(--ring);
+}
+
+/* Form elements inherit font */
+input, textarea, select, button {
+  font-family: inherit;
+}

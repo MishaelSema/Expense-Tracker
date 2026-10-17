@@ -1,116 +1,165 @@
-# Monthly Finance Tracker
+# Ledger — Expense tracker (Next.js)
 
-A modern React web application for tracking monthly income and expenses with Firebase authentication and Firestore database.
+A calm, Apple-inspired personal finance app for students in Cameroon. Built with
+Next.js (App Router), MongoDB, and NextAuth, with Nodemailer for transactional
+email.
+
+This is a full rebuild of the original Vite + Firebase app (`../Expense-Tracker`),
+redesigned for mobile first, with a proper auth flow, legal pages, and a
+student-focused feature set.
 
 ## Features
 
-- 🔐 **Authentication**: Email and password sign-up/login using Firebase Auth
-- 📊 **Dashboard**: Visual overview with summary cards and charts
-- 💰 **Transactions**: Full transaction management with add/edit capabilities
-- 📈 **Charts**: Income vs Expense visualization using Recharts
-- 🎨 **Dark Mode**: Toggle between light and dark themes
-- 📱 **Responsive**: Mobile and desktop friendly design
+- **Auth** — sign up, sign in, email verification, forgot / reset password,
+  change password, delete account. Toasts on every action.
+- **Overview** — balance for the month, income vs. spending, a daily
+  "safe to spend" figure, top categories, and recent activity.
+- **Activity** — full transaction list with search, income/expense filter,
+  add, edit and delete.
+- **Budgets** — per-category limits with a progress bar that turns amber and
+  red as you approach and pass them.
+- **Goals** — savings goals with progress and quick "add money".
+- **Debts** — track what you owe and what you're owed, and mark items paid.
+- **Wishlist** — things worth saving for, with prices and priority.
+- **Notes and tasks** — simple notes plus a task list with due dates.
+- **Insights** — month-over-month spending, category breakdown and a 6-month
+  income vs. expense view, built without a charting library.
+- **Legal** — Privacy Policy, Terms of Service, Cookie Policy, a cookie notice
+  and a help centre.
 
-## Tech Stack
+## Stack
 
-- **React 18** with Vite
-- **Tailwind CSS** for styling
-- **Firebase** (Authentication + Firestore)
-- **React Router** for navigation
-- **Recharts** for data visualization
+- **Next.js 16** (App Router, Turbopack) + TypeScript
+- **Tailwind CSS v4** with design tokens in `globals.css`
+- **MongoDB + Mongoose** for data
+- **NextAuth v4** (credentials) for sessions
+- **Nodemailer** for verification and password-reset email
+- **Framer Motion** for motion, **Sonner** for toasts
 
-## Setup Instructions
+## Getting started
 
-1. **Install dependencies:**
+1. **Install dependencies**
+
    ```bash
    npm install
    ```
 
-2. **Set up Firebase:**
-   - Create a new Firebase project at [Firebase Console](https://console.firebase.google.com/)
-   - Enable Authentication (Email/Password)
-   - Create a Firestore database
-   - Copy your Firebase configuration
+2. **Configure environment**
 
-3. **Configure environment variables:**
-   - Copy `.env.example` to `.env`
-   - Fill in your Firebase configuration values:
-     ```
-     VITE_FIREBASE_API_KEY=your_api_key_here
-     VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain_here
-     VITE_FIREBASE_PROJECT_ID=your_project_id_here
-     VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket_here
-     VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id_here
-     VITE_FIREBASE_APP_ID=your_app_id_here
-     ```
-
-4. **Set up Firestore Security Rules:**
-   - Go to Firestore Database → Rules in Firebase Console
-   - Replace the default rules with:
-   ```javascript
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /transactions/{transactionId} {
-         allow read: if request.auth != null && request.auth.uid == resource.data.userId;
-         allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-         allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
-       }
-     }
-   }
+   ```bash
+   cp .env.example .env.local
    ```
-   - Note: Firestore may prompt you to create a composite index for the queries. Follow the link in the error message to create it automatically.
 
-5. **Run the development server:**
+   Then fill in:
+
+   ```env
+   NEXTAUTH_URL=http://localhost:3000
+   NEXTAUTH_SECRET=          # openssl rand -base64 32
+   MONGODB_URI=              # e.g. mongodb://localhost:27017/ledger
+   SMTP_HOST=                # e.g. smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USER=                # your address
+   SMTP_PASS=                # app password
+   SMTP_FROM=                # e.g. no-reply@yourdomain.com
+   APP_URL=http://localhost:3000
+   NEXT_PUBLIC_SITE_URL=http://localhost:3000   # canonical URL for SEO (sitemap, robots, metadata)
+   ```
+
+   Replace `@ledger.app` email addresses in the legal/support pages with your
+   real support and privacy addresses.
+
+3. **Run**
+
    ```bash
    npm run dev
    ```
 
-6. **Build for production:**
+4. **Build**
+
    ```bash
    npm run build
    ```
 
-## Project Structure
+## Migrating from the old Firebase app
+
+`scripts/migrate-firebase.mjs` copies users and data from the original
+Firestore project into MongoDB:
+
+```bash
+npm i -D firebase-admin
+# PowerShell
+$env:FIREBASE_SERVICE_ACCOUNT="C:\path\to\serviceAccount.json"
+node scripts/migrate-firebase.mjs --dry-run   # preview counts, write nothing
+node scripts/migrate-firebase.mjs             # real import (add --fresh to re-run)
+```
+
+What it does:
+
+- Creates a Ledger user for every Firebase Auth account (matched by email).
+  **Passwords cannot be migrated** — Firebase's hashes aren't bcrypt — so each
+  migrated user gets a random password and must use *Forgot password*. Email
+  verification state is preserved.
+- Imports `transactions`, `budgets`, `debts`, `notes` and `todos`, mapping the
+  old Firestore field names to the new schemas (the exact mapping is documented
+  in the script header). Budgets get `startDate`/`endDate` derived from the old
+  `createdAt` + `period`.
+
+The old app has no `goals` or `wishlist` collections, so nothing is imported
+there. Get a service-account key from Firebase console → Project settings →
+Service accounts → *Generate new private key*, and keep it out of git.
+
+## SEO & accessibility
+
+- Per-page titles/descriptions, Open Graph and Twitter metadata, a canonical
+  `metadataBase` and per-page canonical URLs.
+- `app/robots.ts` and `app/sitemap.ts` expose only the public pages; the app,
+  auth and API routes are disallowed.
+- Skip-to-content links, one `<main>` landmark per page, associated form
+  labels, `aria-label`s on icon-only controls, and Framer Motion configured to
+  honour the OS "reduce motion" preference (`MotionProvider`).
+
+## Project structure
 
 ```
 src/
+├── app/
+│   ├── (marketing)/        # public site: home, legal, support
+│   ├── (auth)/             # login, register, forgot/reset, verify
+│   ├── (app)/              # authenticated app shell + pages
+│   └── api/                # route handlers (auth, resources, profile)
 ├── components/
-│   ├── AddTransactionModal.jsx
-│   ├── SummaryCard.jsx
-│   └── TransactionTable.jsx
-├── pages/
-│   ├── Dashboard.jsx
-│   ├── Login.jsx
-│   ├── Signup.jsx
-│   └── Transactions.jsx
-├── context/
-│   └── AuthContext.jsx
-├── firebase.js
-├── App.jsx
-├── main.jsx
-└── index.css
+│   ├── ui/                 # design-system primitives
+│   ├── layout/             # top nav, mobile bar, bottom tabs
+│   ├── marketing/          # landing page pieces
+│   └── <feature>/          # per-feature client components
+├── lib/                    # db, auth, mail, format, stats, validations
+├── models/                 # Mongoose schemas
+└── proxy.ts                # route protection (Next 16's middleware convention)
 ```
 
-## Features Overview
+## Design system
 
-### Authentication
-- Secure email/password authentication
-- Protected routes for authenticated users
-- Automatic redirect to login if not authenticated
+Read `DESIGN.md` before adding a screen. The short version: use the CSS tokens
+(`var(--accent)`, `var(--separator)`, …), no emoji, no eyebrow headings, minimal
+icons, and confirm every mutating action with a toast.
 
-### Dashboard
-- Current month overview
-- Total income, expenses, and balance
-- Average daily expense calculation
-- Weekly income vs expense chart
+## Scripts
 
-### Transactions
-- Full transaction table with all details
-- Add new transactions via modal form
-- Automatic calculations and summaries
-- Real-time updates from Firestore
+```bash
+npm run dev     # start the dev server
+npm run build   # production build (no secrets required — data routes are dynamic)
+npm run start   # serve the production build
+npm run lint    # ESLint
+```
 
-## License
+## Notes
 
-MIT
+- Currency defaults to **FCFA (XAF)** and uses `Intl` formatting.
+- The public site (home, legal, support) is statically prerendered; the app and
+  API routes are server-rendered on demand.
+- The account screen lets users delete their account and all data immediately.
+- The legal pages are written for Cameroon's framework (Law No. 2010/012 on
+  Cybersecurity and Cybercriminality, Law No. 2010/013 on Electronic
+  Communications, the Malabo Convention) and, where applicable, GDPR and
+  CCPA/CPRA. Have a lawyer review them for your specific situation before
+  launch.
