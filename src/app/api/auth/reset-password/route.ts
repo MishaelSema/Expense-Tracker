@@ -11,20 +11,36 @@ export async function POST(req: Request) {
 
     await connectDB();
 
-    const user = await User.findOne({
-      resetToken: validated.token,
-      resetTokenExpiry: { $gt: new Date() },
-    });
+    // No expiry predicate: we need to know WHY the link failed so the message
+    // is accurate ("already used" / "expired" / "invalid") instead of lumping
+    // them all into a scary "expired".
+    const user = await User.findOne({ resetToken: validated.token });
 
     if (!user) {
       return NextResponse.json(
-        { error: "This reset link is invalid or has expired. Please request a new one." },
+        { error: "This reset link is invalid. Please request a new one." },
+        { status: 400 }
+      );
+    }
+
+    if (user.resetTokenUsedAt) {
+      return NextResponse.json(
+        { error: "This reset link has already been used. Please request a new one." },
+        { status: 400 }
+      );
+    }
+
+    if (!user.resetTokenExpiry || user.resetTokenExpiry.getTime() <= Date.now()) {
+      return NextResponse.json(
+        { error: "This reset link has expired. Please request a new one." },
         { status: 400 }
       );
     }
 
     user.password = validated.password;
-    user.resetToken = undefined;
+    // Mark the token redeemed instead of deleting it — still strictly one-time,
+    // but a second click now reports the truth rather than "expired".
+    user.resetTokenUsedAt = new Date();
     user.resetTokenExpiry = undefined;
     await user.save();
 

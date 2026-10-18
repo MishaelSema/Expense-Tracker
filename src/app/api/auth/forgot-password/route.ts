@@ -22,6 +22,8 @@ export async function POST(req: Request) {
 
       user.resetToken = resetToken;
       user.resetTokenExpiry = resetTokenExpiry;
+      // A fresh link invalidates the "redeemed" mark of any previous one.
+      user.resetTokenUsedAt = undefined;
       await user.save();
 
       try {

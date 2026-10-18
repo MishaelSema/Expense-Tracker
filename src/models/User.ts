@@ -18,6 +18,8 @@ export interface IUser extends Document {
   };
   resetToken?: string;
   resetTokenExpiry?: Date;
+  /** Set when a reset link is redeemed so replays say "already used", not "expired". */
+  resetTokenUsedAt?: Date;
   verificationToken?: string;
   verificationTokenExpiry?: Date;
   createdAt: Date;
@@ -71,6 +73,7 @@ const UserSchema = new Schema<IUser>(
     },
     resetToken: String,
     resetTokenExpiry: Date,
+    resetTokenUsedAt: Date,
     verificationToken: String,
     verificationTokenExpiry: Date,
   },

@@ -19,15 +19,54 @@ export default function RegisterPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showResend, setShowResend] = useState(false);
+  const [resending, setResending] = useState(false);
 
   function update(key: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm((f) => ({ ...f, [key]: e.target.value }));
   }
 
+  /**
+   * The address is already registered, so registering again is impossible —
+   * offer a fresh verification link instead of leaving them stuck here.
+   */
+  async function resendVerification() {
+    const value = form.email.trim();
+    if (!value) return;
+
+    setResending(true);
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: value }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "We couldn't send that. Try again.");
+        return;
+      }
+      if (data.alreadyVerified) {
+        setError("");
+        setShowResend(false);
+        toast.success("That email is already verified — you can sign in");
+        router.push("/login");
+        return;
+      }
+      toast.success("New link sent — check your inbox");
+      router.push("/verify-email?sent=1&email=" + encodeURIComponent(value));
+    } catch {
+      setError("We couldn't send that. Try again.");
+    } finally {
+      setResending(false);
+    }
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setShowResend(false);
 
     if (form.password !== form.confirmPassword) {
       setError("Those passwords don't match.");
@@ -49,6 +88,7 @@ export default function RegisterPage() {
 
       if (!res.ok) {
         setError(data.error || "Something went wrong. Please try again.");
+        setShowResend(res.status === 409);
         setLoading(false);
         return;
       }
@@ -76,6 +116,28 @@ export default function RegisterPage() {
             style={{ backgroundColor: "color-mix(in srgb, var(--danger) 10%, transparent)" }}
           >
             {error}
+          </div>
+        )}
+
+        {showResend && (
+          <div
+            className="rounded-xl px-3.5 py-3"
+            style={{ backgroundColor: "var(--surface-secondary)" }}
+          >
+            <p className="text-[13.5px] leading-relaxed text-[var(--foreground-secondary)]">
+              Already signed up with this address? You don&apos;t need to register
+              again — we can email you a fresh verification link.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3 w-full"
+              onClick={resendVerification}
+              disabled={resending}
+            >
+              {resending ? "Sending…" : "Send a new verification link"}
+            </Button>
           </div>
         )}
 
