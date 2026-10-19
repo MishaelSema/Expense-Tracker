@@ -7,10 +7,16 @@ export interface IPushSubscription extends Document {
   userAgent?: string;
   /** When the server last attempted delivery to this endpoint. */
   lastPushAt?: Date;
-  /** HTTP status the push service answered with (201 = delivered). */
+  /** HTTP status the push service answered with (201 = accepted). */
   lastPushStatus?: number;
   /** Failure text when delivery didn't go through. */
   lastPushError?: string;
+  /** When the device itself reported the push arrived (service worker ack). */
+  lastAckAt?: Date;
+  /** Whether the device managed to show the notification. */
+  lastAckShown?: boolean;
+  /** Device-side reason when the notification couldn't be shown. */
+  lastAckError?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,10 +32,14 @@ const PushSubscriptionSchema = new Schema<IPushSubscription>(
     },
     userAgent: String,
     // Delivery bookkeeping: the only way to tell what happened to a
-    // notification headed for a device nobody can inspect.
+    // notification headed for a device nobody can inspect. `lastPushAt` is
+    // what the push service said; `lastAckAt` is what the phone confirmed.
     lastPushAt: Date,
     lastPushStatus: Number,
     lastPushError: String,
+    lastAckAt: Date,
+    lastAckShown: Boolean,
+    lastAckError: String,
   },
   { timestamps: true }
 );

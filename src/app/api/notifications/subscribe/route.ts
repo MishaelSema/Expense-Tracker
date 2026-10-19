@@ -12,9 +12,47 @@ export async function GET() {
   if ("response" in auth) return auth.response;
 
   const configured = pushConfigured();
+
+  // What happened to the most recent notification headed for this account's
+  // device. Best effort — a database hiccup must never stop the client from
+  // learning whether push is configured at all.
+  let delivery: {
+    pushAt: string | null;
+    pushStatus: number | null;
+    ackAt: string | null;
+    ackShown: boolean | null;
+    ackError: string | null;
+  } | null = null;
+
+  try {
+    await connectDB();
+    const sub = (await PushSubscription.findOne({ userId: auth.userId })
+      .sort({ lastPushAt: -1, updatedAt: -1 })
+      .lean()) as unknown as {
+      lastPushAt?: Date | null;
+      lastPushStatus?: number | null;
+      lastAckAt?: Date | null;
+      lastAckShown?: boolean | null;
+      lastAckError?: string | null;
+    } | null;
+
+    if (sub) {
+      delivery = {
+        pushAt: sub.lastPushAt ? new Date(sub.lastPushAt).toISOString() : null,
+        pushStatus: sub.lastPushStatus ?? null,
+        ackAt: sub.lastAckAt ? new Date(sub.lastAckAt).toISOString() : null,
+        ackShown: typeof sub.lastAckShown === "boolean" ? sub.lastAckShown : null,
+        ackError: sub.lastAckError || null,
+      };
+    }
+  } catch (error) {
+    console.error("GET /api/notifications/subscribe delivery", error);
+  }
+
   return NextResponse.json({
     configured,
     publicKey: configured ? process.env.VAPID_PUBLIC_KEY ?? null : null,
+    delivery,
   });
 }
 

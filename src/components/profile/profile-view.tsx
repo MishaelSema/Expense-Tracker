@@ -14,6 +14,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Sheet } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { enablePush, disablePush } from "@/lib/push-client";
+import { formatRelative } from "@/lib/format";
 
 export interface ProfileUser {
   name: string;
@@ -71,6 +72,13 @@ export function ProfileView({ user }: { user: ProfileUser }) {
   const [ios, setIos] = useState(false);
   const [installed, setInstalled] = useState(true);
   const [savingName, setSavingName] = useState(false);
+  const [delivery, setDelivery] = useState<null | {
+    pushAt: string | null;
+    pushStatus: number | null;
+    ackAt: string | null;
+    ackShown: boolean | null;
+    ackError: string | null;
+  }>(null);
 
   useEffect(() => {
     setIos(/iPad|iPhone|iPod/.test(navigator.userAgent));
@@ -78,7 +86,23 @@ export function ProfileView({ user }: { user: ProfileUser }) {
       window.matchMedia("(display-mode: standalone)").matches ||
         (navigator as Navigator & { standalone?: boolean }).standalone === true
     );
-  }, []);
+
+    async function loadDelivery() {
+      try {
+        const res = await fetch("/api/notifications/subscribe", { cache: "no-store" });
+        if (res.ok) {
+          const d = await res.json().catch(() => ({}));
+          setDelivery(d?.delivery ?? null);
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    if (remindersPush) {
+      loadDelivery();
+    }
+  }, [remindersPush]);
 
   const [pwdOpen, setPwdOpen] = useState(false);
   const [pwd, setPwd] = useState({ current: "", next: "", confirm: "" });
@@ -174,6 +198,32 @@ export function ProfileView({ user }: { user: ProfileUser }) {
     setTestBusy(false);
     if (result.sent > 0) {
       toast.success("Test sent — press Home now to see it arrive");
+      // Give the device a few seconds to report back, then show delivery proof.
+      setTimeout(async () => {
+        try {
+          const res = await fetch("/api/notifications/subscribe", { cache: "no-store" });
+          if (res.ok) {
+            const d = await res.json().catch(() => ({}));
+            setDelivery(d?.delivery ?? null);
+            const del = d?.delivery;
+            if (del?.ackAt) {
+              if (del.ackShown) {
+                toast.success("Your device confirmed the notification arrived ✓");
+              } else if (del.ackError) {
+                toast.error(
+                  del.ackError.length > 120 ? del.ackError.slice(0, 117) + "…" : del.ackError
+                );
+              }
+            } else {
+              toast("Still waiting for this device to acknowledge it", {
+                description: "If nothing shows, check Settings → Notifications → Ledger.",
+              });
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      }, 4000);
     } else {
       toast.error(result.error || "The test didn't reach this device");
     }
@@ -419,6 +469,19 @@ export function ProfileView({ user }: { user: ProfileUser }) {
                       ? "Sending… press Home or lock your phone now"
                       : "Sends one to your devices in a few seconds"}
                   </p>
+                  {delivery && (
+                    <p className="mt-1 text-[12px] leading-snug text-[var(--foreground-secondary)]">
+                      {delivery.ackAt
+                        ? delivery.ackShown
+                          ? `Received on this device ${formatRelative(delivery.ackAt)} ✓`
+                          : `Device received it ${formatRelative(
+                              delivery.ackAt
+                            )} but couldn't show it${delivery.ackError ? `: ${delivery.ackError}` : "."}`
+                        : delivery.pushAt
+                        ? `Apple accepted it ${formatRelative(delivery.pushAt)} — no device report yet.`
+                        : null}
+                    </p>
+                  )}
                 </div>
                 <Button
                   variant="secondary"
