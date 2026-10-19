@@ -5,7 +5,7 @@ import Reminder from "@/models/Reminder";
 import { serializeList } from "@/lib/serialize";
 import { computeMonthStats } from "@/lib/stats";
 import { syncRemindersForUser } from "@/lib/reminders";
-import { getRates } from "@/lib/external-data";
+import { getRates, getNews } from "@/lib/external-data";
 import { DashboardView } from "@/components/dashboard/dashboard-view";
 
 export const metadata = { title: "Overview" };
@@ -70,8 +70,9 @@ export default async function DashboardPage() {
     })
     .slice(0, 3);
 
-  // A two-line market strip: EUR→XAF and USD→XAF (the two that matter most).
-  const rates = await getRates();
+  // A two-line market strip: EUR→XAF and USD→XAF (the two that matter most),
+  // plus the day's headlines so the Overview stands on its own.
+  const [rates, news] = await Promise.all([getRates(), getNews(6)]);
   const marketRates: { label: string; value: string }[] = [];
   if (rates?.rates?.XAF) {
     marketRates.push({
@@ -93,6 +94,7 @@ export default async function DashboardPage() {
       recent={JSON.parse(JSON.stringify(recent))}
       reminders={JSON.parse(JSON.stringify(reminders))}
       marketRates={marketRates}
+      news={JSON.parse(JSON.stringify(news))}
     />
   );
 }

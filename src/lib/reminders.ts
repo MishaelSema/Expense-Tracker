@@ -23,6 +23,8 @@ export interface ReminderCandidate {
   body: string;
   dueDate?: Date;
   severity: ReminderSeverity;
+  /** Platform logo of the source bill, when it has one. */
+  logoUrl?: string;
 }
 
 export interface ReminderSourceDebt {
@@ -39,6 +41,9 @@ export interface ReminderSourceBill {
   amount: number;
   nextDueDate: Date;
   active: boolean;
+  /** Days before the due date the reminder window opens. */
+  leadDays?: number;
+  logoUrl?: string;
 }
 export interface ReminderSourceBudget {
   id: string;
@@ -75,27 +80,30 @@ const DAY_MS = 86_400_000;
 /** Ignore anything this far past due so the list never fills with ancient noise. */
 const MAX_OVERDUE_DAYS = 60;
 
-function startOfDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
+/**
+ * Day math runs on the UTC fields of an instant. Date-only records (due dates,
+ * budget windows) round-trip through the database as UTC midnight, so reading
+ * them with local fields would slide the calendar day on any host that isn't
+ * running UTC — a bill due today would compute as overdue a day early. Flooring
+ * the epoch and slicing the ISO string both read the UTC day every host agrees
+ * on; on Vercel (UTC) these are identical to the old local-field results.
+ */
 
 /** Whole days from `today` to `date`; negative means already past. */
 function daysUntil(date: Date, today: Date): number {
-  return Math.round((startOfDay(date).getTime() - startOfDay(today).getTime()) / DAY_MS);
+  return Math.floor(date.getTime() / DAY_MS) - Math.floor(today.getTime() / DAY_MS);
 }
 
 function dayKey(d: Date): string {
-  const x = startOfDay(d);
-  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(
-    x.getDate()
-  ).padStart(2, "0")}`;
+  return d.toISOString().slice(0, 10);
 }
 
 function spentInWindow(
   txs: ReminderSourceTx[],
   category: string,
   start: Date,
-  end: Date
+  /** Exclusive upper bound: the midnight that opens the day after the period. */
+  endExclusive: Date
 ): number {
   const wanted = category.trim().toLowerCase();
   return txs
@@ -104,7 +112,7 @@ function spentInWindow(
         t.type === "expense" &&
         t.category.trim().toLowerCase() === wanted &&
         new Date(t.date) >= start &&
-        new Date(t.date) <= end
+        new Date(t.date) < endExclusive
     )
     .reduce((sum, t) => sum + t.amount, 0);
 }
@@ -119,7 +127,7 @@ function money(amount: number, currency: string): string {
  */
 export function buildReminders(input: BuildInput): ReminderCandidate[] {
   const now = input.now ?? new Date();
-  const today = startOfDay(now);
+  const today = now; // daysUntil normalizes both sides to UTC days itself
   const currency = input.currency ?? "XAF";
   const out: ReminderCandidate[] = [];
 
@@ -138,8 +146,11 @@ export function buildReminders(input: BuildInput): ReminderCandidate[] {
       type: "debt_due",
       title: overdue ? `Overdue debt ${who}` : `Debt due ${who}`,
       body: overdue
-        ? `${money(d.amount, currency)} was due ${formatDate(due)}.`
-        : `${money(d.amount, currency)} due ${formatDate(due)}.`,
+        ? // Format via the ISO string: formatDate() re-reads UTC-midnight
+          // strings as calendar dates, while a Date would render in whatever
+          // timezone this host happens to run in.
+          `${money(d.amount, currency)} was due ${formatDate(due.toISOString())}.`
+        : `${money(d.amount, currency)} due ${formatDate(due.toISOString())}.`,
       dueDate: due,
       severity: overdue ? "critical" : diff <= 2 ? "warning" : "info",
     });
@@ -150,7 +161,11 @@ export function buildReminders(input: BuildInput): ReminderCandidate[] {
     if (!b.active) continue;
     const due = new Date(b.nextDueDate);
     const diff = daysUntil(due, today);
-    if (diff > 3 || diff < -MAX_OVERDUE_DAYS) continue;
+    // Each bill chooses how far ahead its reminder window opens (default 3
+    // days), so a subscription can nudge a fortnight out while a utility bill
+    // waits until the eleventh hour.
+    const lead = Math.min(Math.max(b.leadDays ?? 3, 1), 30);
+    if (diff > lead || diff < -MAX_OVERDUE_DAYS) continue;
 
     const overdue = diff < 0;
     out.push({
@@ -158,10 +173,11 @@ export function buildReminders(input: BuildInput): ReminderCandidate[] {
       type: "bill_due",
       title: overdue ? `Bill overdue · ${b.name}` : `Bill due · ${b.name}`,
       body: overdue
-        ? `${money(b.amount, currency)} was due ${formatDate(due)}.`
-        : `${money(b.amount, currency)} due ${formatDate(due)}.`,
+        ? `${money(b.amount, currency)} was due ${formatDate(due.toISOString())}.`
+        : `${money(b.amount, currency)} due ${formatDate(due.toISOString())}.`,
       dueDate: due,
       severity: overdue ? "critical" : diff <= 1 ? "warning" : "info",
+      logoUrl: b.logoUrl,
     });
   }
 
@@ -169,9 +185,14 @@ export function buildReminders(input: BuildInput): ReminderCandidate[] {
   for (const b of input.budgets) {
     const start = new Date(b.startDate);
     const end = new Date(b.endDate);
-    if (now < start || now > end) continue;
+    // Date-only bounds are midnights, but a period runs through its whole end
+    // day: compare against the exclusive next midnight, or the final day drops
+    // out of the window — its spending would be ignored and the "ends today"
+    // reminder could never fire.
+    const endExclusive = new Date(end.getTime() + DAY_MS);
+    if (now < start || now >= endExclusive) continue;
 
-    const spent = spentInWindow(input.transactions, b.category, start, end);
+    const spent = spentInWindow(input.transactions, b.category, start, endExclusive);
     if (spent <= 0) continue;
 
     const used = b.amount > 0 ? spent / b.amount : 0;
@@ -231,7 +252,7 @@ export function buildReminders(input: BuildInput): ReminderCandidate[] {
       key: `goal:${g.id}:deadline:${dayKey(target)}`,
       type: "goal_deadline",
       title: overdue ? `Goal behind schedule · ${g.title}` : `Goal deadline soon · ${g.title}`,
-      body: `${money(remaining, currency)} still to save by ${formatDate(target)}.`,
+      body: `${money(remaining, currency)} still to save by ${formatDate(target.toISOString())}.`,
       dueDate: target,
       severity: overdue ? "critical" : diff <= 3 ? "warning" : "info",
     });
@@ -280,6 +301,8 @@ export async function syncRemindersForUser(
       amount: b.amount,
       nextDueDate: b.nextDueDate,
       active: b.active,
+      leadDays: b.leadDays,
+      logoUrl: b.logoUrl,
     })),
     budgets: budgets.map((b) => ({
       id: String(b._id),
@@ -316,6 +339,7 @@ export async function syncRemindersForUser(
               body: c.body,
               dueDate: c.dueDate ?? null,
               severity: c.severity,
+              logoUrl: c.logoUrl ?? null,
             },
             $setOnInsert: {
               userId,
@@ -332,6 +356,18 @@ export async function syncRemindersForUser(
       { ordered: false }
     );
   }
+
+  // Sources move and disappear — a due date gets edited, a bill gets deleted —
+  // and rows keyed by the old occurrence would otherwise linger forever,
+  // restating dates that no longer exist in tomorrow's digest. Every Reminder
+  // row comes from this sync, so anything active that no longer matches a
+  // candidate is stale by definition; dismissed rows stay, since dismissing is
+  // a decision the user made and should stick.
+  await Reminder.deleteMany({
+    userId,
+    dismissedAt: null,
+    key: { $nin: candidates.map((c) => c.key) },
+  });
 
   return candidates;
 }

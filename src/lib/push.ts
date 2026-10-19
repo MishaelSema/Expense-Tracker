@@ -32,6 +32,8 @@ export interface PushPayload {
   title: string;
   body: string;
   url?: string;
+  /** Optional image (e.g. a platform logo) shown in the notification. */
+  image?: string;
 }
 
 export interface PushFailure {

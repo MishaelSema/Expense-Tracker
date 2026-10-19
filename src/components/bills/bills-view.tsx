@@ -10,7 +10,7 @@ import { Sheet } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/ui/empty-state";
-import { PlusIcon, TrashIcon } from "@/components/ui/icons";
+import { PlusIcon, TrashIcon, RepeatIcon } from "@/components/ui/icons";
 import { EXPENSE_CATEGORIES } from "@/lib/categories";
 import { formatCurrency, formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,10 @@ export interface BillItem {
   nextDueDate: string;
   active: boolean;
   note?: string;
+  /** Days before the due date the reminder window opens. */
+  leadDays?: number;
+  /** Absolute logo URL (hosted image or our own logo endpoint). */
+  logoUrl?: string;
 }
 
 const FREQUENCIES: { value: BillItem["frequency"]; label: string }[] = [
@@ -32,6 +36,9 @@ const FREQUENCIES: { value: BillItem["frequency"]; label: string }[] = [
   { value: "yearly", label: "Yearly" },
   { value: "once", label: "One-off" },
 ];
+
+/** Lead-time choices offered in the form; 3 is the default everywhere. */
+const LEAD_OPTIONS = [1, 2, 3, 5, 7, 14];
 
 const selectClassName =
   "flex h-11 w-full rounded-xl bg-[var(--surface-secondary)] px-3.5 text-[16px] text-[var(--foreground)] border border-transparent focus:border-[var(--accent)] focus:bg-[var(--surface)] focus:outline-none";
@@ -55,6 +62,11 @@ interface FormState {
   nextDueDate: string;
   note: string;
   active: boolean;
+  leadDays: number;
+  /** Pasted URL. Kept as-is when it already points at the stored logo. */
+  logoUrl: string;
+  /** A newly picked file, as a data URL; only sent when changed. */
+  logoData: string | null;
 }
 
 const emptyForm = (): FormState => ({
@@ -65,6 +77,9 @@ const emptyForm = (): FormState => ({
   nextDueDate: todayInput(),
   note: "",
   active: true,
+  leadDays: 3,
+  logoUrl: "",
+  logoData: null,
 });
 
 export function BillsView({ bills }: { bills: BillItem[] }) {
@@ -96,9 +111,34 @@ export function BillsView({ bills }: { bills: BillItem[] }) {
       nextDueDate: (bill.nextDueDate || todayInput()).slice(0, 10),
       note: bill.note ?? "",
       active: bill.active,
+      leadDays: bill.leadDays ?? 3,
+      // The stored logo URL (pasted image or our own logo endpoint) rides back
+      // untouched unless the user replaces or removes it.
+      logoUrl: bill.logoUrl ?? "",
+      logoData: null,
     });
     setError("");
     setSheetOpen(true);
+  }
+
+  function onPickLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // let the same file be picked again after a remove
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp|gif)$/.test(file.type)) {
+      toast.error("Use a PNG, JPEG, WebP or GIF image");
+      return;
+    }
+    if (file.size > 400 * 1024) {
+      toast.error("Image must be under 400 KB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm((f) => ({ ...f, logoData: String(reader.result), logoUrl: "" }));
+    };
+    reader.onerror = () => toast.error("That image couldn't be read");
+    reader.readAsDataURL(file);
   }
 
   async function submit(e: React.FormEvent) {
@@ -128,6 +168,12 @@ export function BillsView({ bills }: { bills: BillItem[] }) {
         nextDueDate: new Date(form.nextDueDate).toISOString(),
         note: form.note.trim() || undefined,
         active: form.active,
+        leadDays: form.leadDays,
+        // Always send the URL (possibly empty) so clearing works; only send a
+        // data URL when a file was just picked — an untouched upload keeps its
+        // stored bytes because its URL comes back identical.
+        logoUrl: form.logoUrl.trim(),
+        ...(form.logoData ? { logoData: form.logoData } : {}),
       };
 
       const res = await fetch(editing ? `/api/bills/${editing._id}` : "/api/bills", {
@@ -173,7 +219,7 @@ export function BillsView({ bills }: { bills: BillItem[] }) {
     <div className="space-y-6">
       <PageHeader
         title="Bills"
-        subtitle="Recurring commitments Ledger should remind you about."
+        subtitle="Subscriptions and recurring bills, with a reminder and their logos before each due date."
         action={
           <Button variant="primary" size="md" onClick={openNew}>
             <PlusIcon width={18} height={18} />
@@ -203,7 +249,23 @@ export function BillsView({ bills }: { bills: BillItem[] }) {
                   onClick={() => openEdit(bill)}
                   className="flex min-w-0 flex-1 items-center justify-between gap-3 px-5 py-3.5 text-left pressable"
                 >
-                  <span className="min-w-0">
+                  <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-[var(--separator)] bg-[var(--surface-secondary)] text-[var(--foreground-secondary)]">
+                    <RepeatIcon width={15} height={15} />
+                    {bill.logoUrl && (
+                      // User-supplied logo URL: next/image would need an allowlist, and
+                      // the onError fallback needs a plain img.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={bill.logoUrl}
+                        alt=""
+                        className="absolute inset-0 h-full w-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
                     <span className="flex items-center gap-2">
                       <span
                         className={cn(
@@ -222,6 +284,9 @@ export function BillsView({ bills }: { bills: BillItem[] }) {
                     <span className="mt-0.5 block truncate text-[13px] text-[var(--foreground-secondary)]">
                       {bill.category} · {freqLabel(bill.frequency)} · due{" "}
                       {formatRelative(bill.nextDueDate)}
+                      {bill.leadDays && bill.leadDays !== 3
+                        ? ` · remind ${bill.leadDays}d before`
+                        : ""}
                     </span>
                   </span>
                   <span className="shrink-0 text-[15px] font-semibold tabular-nums text-[var(--foreground)]">
@@ -258,6 +323,60 @@ export function BillsView({ bills }: { bills: BillItem[] }) {
               placeholder="Electricity"
               autoFocus
             />
+          </div>
+
+          <div>
+            <Label>Platform logo (optional)</Label>
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--separator)] bg-[var(--surface-secondary)] text-[var(--foreground-secondary)]">
+                <RepeatIcon width={18} height={18} />
+                {(form.logoData || form.logoUrl) && (
+                  // Picked files are data URLs and pasted logos are arbitrary URLs:
+                  // next/image supports neither without configuration, and onError
+                  // needs a plain img.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={form.logoData || form.logoUrl}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                )}
+              </span>
+              <label className="inline-flex h-9 cursor-pointer items-center rounded-full border border-[var(--separator)] bg-[var(--surface)] px-3.5 text-[13px] font-medium text-[var(--foreground-secondary)] hover:text-[var(--foreground)] pressable">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  /* sr-only, not hidden: keeps the input in the accessibility
+                     tree (screen readers, test automation) while invisible. */
+                  className="sr-only"
+                  onChange={onPickLogo}
+                />
+                Choose image
+              </label>
+              {(form.logoData || form.logoUrl) && (
+                <button
+                  type="button"
+                  className="text-[13px] text-[var(--danger)] pressable"
+                  onClick={() => setForm((f) => ({ ...f, logoUrl: "", logoData: null }))}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <Input
+              value={form.logoUrl}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, logoUrl: e.target.value, logoData: null }))
+              }
+              placeholder="…or paste an image URL"
+              className="mt-2.5"
+            />
+            <p className="mt-1.5 text-[12px] text-[var(--foreground-secondary)]">
+              The logo appears on reminders, emails and push notifications.
+            </p>
           </div>
 
           <div>
@@ -317,6 +436,28 @@ export function BillsView({ bills }: { bills: BillItem[] }) {
               value={form.nextDueDate}
               onChange={(e) => setForm((f) => ({ ...f, nextDueDate: e.target.value }))}
             />
+          </div>
+
+          <div>
+            <Label htmlFor="bill-lead">Remind me before due</Label>
+            <select
+              id="bill-lead"
+              className={selectClassName}
+              value={form.leadDays}
+              onChange={(e) => setForm((f) => ({ ...f, leadDays: Number(e.target.value) }))}
+            >
+              {(LEAD_OPTIONS.includes(form.leadDays)
+                ? LEAD_OPTIONS
+                : [...LEAD_OPTIONS, form.leadDays].sort((a, b) => a - b)
+              ).map((days) => (
+                <option key={days} value={days}>
+                  {days} day{days === 1 ? "" : "s"} before
+                </option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-[12px] text-[var(--foreground-secondary)]">
+              Ledger starts reminding you this many days ahead of each due date.
+            </p>
           </div>
 
           <div>

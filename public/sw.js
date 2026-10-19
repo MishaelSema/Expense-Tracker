@@ -21,6 +21,11 @@ self.addEventListener("push", (event) => {
     body: data.body || "",
     icon: "/icon.svg",
     badge: "/icon.svg",
+    // A reminder's platform logo, when one was attached.
+    ...(data.image ? { image: data.image } : {}),
+    // Let iOS treat the alert as time-sensitive so Focus modes and the
+    // Scheduled Summary don't park it for hours. Ignored where unsupported.
+    interruptionLevel: "time-sensitive",
     data: { url: data.url || "/reminders" },
   };
 

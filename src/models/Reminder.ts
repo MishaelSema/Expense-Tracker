@@ -16,6 +16,8 @@ export interface IReminder extends Document {
   body: string;
   dueDate?: Date;
   severity: "info" | "warning" | "critical";
+  /** Platform logo of the source bill/subscription, for emails and pushes. */
+  logoUrl?: string | null;
   readAt?: Date | null;
   dismissedAt?: Date | null;
   emailedAt?: Date | null;
@@ -41,6 +43,7 @@ const ReminderSchema = new Schema<IReminder>(
       enum: ["info", "warning", "critical"],
       default: "info",
     },
+    logoUrl: { type: String, default: null },
     readAt: { type: Date, default: null },
     dismissedAt: { type: Date, default: null },
     emailedAt: { type: Date, default: null },

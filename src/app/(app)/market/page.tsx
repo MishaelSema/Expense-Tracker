@@ -1,8 +1,9 @@
 import { PageHeader } from "@/components/page-header";
 import { Card, CardBody, CardHeader, CardTitle } from "@/components/ui/card";
 import { RateConverter } from "@/components/market/rate-converter";
+import { HeadlinesCard } from "@/components/news/headlines-card";
 import { getRates, getNews } from "@/lib/external-data";
-import { formatDate, formatRelative } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 
 export const metadata = { title: "Market" };
 
@@ -83,43 +84,7 @@ export default async function MarketPage() {
       )}
 
       {/* Headlines */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Headlines</CardTitle>
-        </CardHeader>
-        <CardBody className="pt-1">
-          {news.length === 0 ? (
-            <p className="py-2 text-[15px] text-[var(--foreground-secondary)]">
-              No headlines right now. Check back soon.
-            </p>
-          ) : (
-            <ul className="divide-y divide-[var(--separator)]">
-              {news.map((item) => (
-                <li key={item.url} className="py-3.5 first:pt-2 last:pb-0">
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group block"
-                  >
-                    <p className="text-[11px] uppercase tracking-[0.06em] text-[var(--foreground-secondary)]">
-                      {item.source} · {formatRelative(item.publishedAt)}
-                    </p>
-                    <p className="mt-1 text-[15.5px] font-medium leading-snug text-[var(--foreground)] group-hover:text-[var(--accent)]">
-                      {item.title}
-                    </p>
-                    {item.summary && (
-                      <p className="mt-1 line-clamp-2 text-[13.5px] leading-snug text-[var(--foreground-secondary)]">
-                        {item.summary}
-                      </p>
-                    )}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardBody>
-      </Card>
+      <HeadlinesCard items={news} />
     </div>
   );
 }

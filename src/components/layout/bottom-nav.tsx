@@ -23,7 +23,12 @@ export function BottomNav({ reminderCount = 0 }: { reminderCount?: number }) {
   return (
     <>
       <nav
-        className="lg:hidden fixed bottom-0 inset-x-0 z-50 material border-t border-[var(--separator)] pb-[env(safe-area-inset-bottom)]"
+        // translate3d promotes the bar to its own composited layer. WebKit
+        // (notably iOS) occasionally paints fixed bottom bars against the wrong
+        // viewport edge — the bar rides up with the page while scrolling even
+        // though its layout is correct — and layer promotion is the documented
+        // remedy (WebKit bugs 312149 / 297779). It is a no-op elsewhere.
+        className="lg:hidden fixed bottom-0 inset-x-0 z-50 material border-t border-[var(--separator)] pb-[env(safe-area-inset-bottom)] [transform:translate3d(0,0,0)]"
         style={{ backgroundColor: "color-mix(in srgb, var(--surface) 72%, transparent)" }}
         aria-label="Primary"
       >

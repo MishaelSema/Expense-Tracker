@@ -151,7 +151,14 @@ export function ProfileView({ user }: { user: ProfileUser }) {
   /** Fires one real notification now, so delivery is provable on the spot. */
   async function runTestPush(): Promise<{ sent: number; error?: string }> {
     try {
-      const res = await fetch("/api/notifications/test", { method: "POST" });
+      const res = await fetch("/api/notifications/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // The server holds the send for a few seconds — iOS doesn't banner a
+        // web app that's open, so the countdown is the user's window to press
+        // Home (or lock the phone) before it arrives.
+        body: JSON.stringify({ delay: 4 }),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return { sent: 0, error: data.error || "Couldn't reach this device" };
       return { sent: Number(data.sent) || 0 };
@@ -166,7 +173,7 @@ export function ProfileView({ user }: { user: ProfileUser }) {
     const result = await runTestPush();
     setTestBusy(false);
     if (result.sent > 0) {
-      toast.success("Test notification sent — check your device");
+      toast.success("Test sent — press Home now to see it arrive");
     } else {
       toast.error(result.error || "The test didn't reach this device");
     }
@@ -211,7 +218,7 @@ export function ProfileView({ user }: { user: ProfileUser }) {
       // Prove the whole path now instead of waiting for tomorrow's digest.
       const test = await runTestPush();
       if (test.sent > 0) {
-        toast.success("Test notification sent — check your device");
+        toast.success("Test sent — press Home now to see it arrive");
       } else {
         toast.error(test.error || "The test didn't reach this device");
       }
@@ -408,7 +415,9 @@ export function ProfileView({ user }: { user: ProfileUser }) {
                 <div className="pr-3">
                   <p className="text-[16px]">Test notification</p>
                   <p className="text-[13px] text-[var(--foreground-secondary)]">
-                    Sends one to your devices right now
+                    {testBusy
+                      ? "Sending… press Home or lock your phone now"
+                      : "Sends one to your devices in a few seconds"}
                   </p>
                 </div>
                 <Button
@@ -424,11 +433,24 @@ export function ProfileView({ user }: { user: ProfileUser }) {
           </CardList>
           {ios && !installed && (
             <p className="px-4 pb-4 text-[13px] leading-relaxed text-[var(--foreground-secondary)]">
-              On iPhone, notifications only arrive from the installed app. Tap{" "}
+              On iPhone, notifications only arrive from the installed app. In{" "}
+              <span className="font-medium text-[var(--foreground)]">Safari</span>, tap{" "}
               <span className="font-medium text-[var(--foreground)]">
                 Share → Add to Home Screen
               </span>
-              , open Ledger from your Home Screen, then switch this on.
+              , open Ledger from your Home Screen, then switch this on. (Chrome&apos;s
+              &quot;Add to Home Screen&quot; creates a bookmark instead — it can&apos;t
+              receive notifications.)
+            </p>
+          )}
+          {ios && installed && (
+            <p className="px-4 pb-4 text-[13px] leading-relaxed text-[var(--foreground-secondary)]">
+              iPhone shows a banner only while Ledger is in the background — after tapping
+              Send, press Home. If nothing arrives: check{" "}
+              <span className="font-medium text-[var(--foreground)]">
+                Settings → Notifications → Ledger
+              </span>{" "}
+              is allowed, and that Focus or Scheduled Summary isn&apos;t holding it back.
             </p>
           )}
         </div>

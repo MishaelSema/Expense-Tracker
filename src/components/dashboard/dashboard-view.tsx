@@ -9,6 +9,8 @@ import { PlusIcon, ArrowRightIcon } from "@/components/ui/icons";
 import { formatCurrency, formatRelative } from "@/lib/format";
 import { REMINDER_SEVERITY_COLOR } from "@/lib/reminder-display";
 import type { MonthStats } from "@/lib/stats";
+import type { NewsItem } from "@/lib/external-data";
+import { HeadlinesCard } from "@/components/news/headlines-card";
 import { TransactionFormSheet } from "@/components/transactions/transaction-form-sheet";
 
 interface RecentItem {
@@ -45,12 +47,14 @@ export function DashboardView({
   recent,
   reminders = [],
   marketRates = [],
+  news = [],
 }: {
   userName: string;
   stats: MonthStats;
   recent: RecentItem[];
   reminders?: DashboardReminder[];
   marketRates?: MarketRate[];
+  news?: NewsItem[];
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const firstName = userName?.split(" ")[0] || "there";
@@ -192,6 +196,9 @@ export function DashboardView({
           </div>
         </Card>
       )}
+
+      {/* Today's headlines */}
+      {news.length > 0 && <HeadlinesCard items={news} limit={5} moreHref="/market" />}
 
       {/* Category breakdown */}
       <Card>

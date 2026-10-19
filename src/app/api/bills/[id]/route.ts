@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireUser, badRequest, serverError, zodMessage } from "@/lib/api-auth";
 import { connectDB } from "@/lib/db";
 import Bill from "@/models/Bill";
+import { appUrl } from "@/lib/site";
+import { parseLeadDays, parseLogoUrl, parseLogoData } from "@/lib/bill-logo";
 
 const FREQUENCIES = ["weekly", "monthly", "yearly", "once"];
 
@@ -56,6 +58,33 @@ export async function PATCH(
     if (body.active !== undefined) {
       update.active = Boolean(body.active);
     }
+    if (body.leadDays !== undefined) {
+      update.leadDays = parseLeadDays(body.leadDays);
+    }
+
+    // Logo: a fresh upload wins; otherwise a provided URL replaces (or with an
+    // empty string clears) whatever was there. Dropping a stored upload means
+    // nulling logoData alongside logoUrl so the two never disagree.
+    const newLogoData = parseLogoData(body.logoData);
+    if (newLogoData === false) {
+      return badRequest("That image couldn't be read. Try another one.");
+    }
+    if (newLogoData) {
+      update.logoData = newLogoData;
+      update.logoUrl = appUrl(`/api/bills/logo/${id}`);
+    } else if (body.logoUrl !== undefined) {
+      const logoUrl = parseLogoUrl(body.logoUrl);
+      if (logoUrl === false) {
+        return badRequest("Use an image URL starting with http:// or https://.");
+      }
+      if (logoUrl === null) {
+        update.logoUrl = null;
+        update.logoData = null;
+      } else if (logoUrl !== existing.logoUrl) {
+        update.logoUrl = logoUrl;
+        if (existing.logoData) update.logoData = null;
+      }
+    }
 
     const updated = await Bill.findOneAndUpdate(
       { _id: id, userId: auth.userId },
@@ -66,7 +95,9 @@ export async function PATCH(
       return NextResponse.json({ error: "Bill not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ bill: updated });
+    const plain = updated.toObject() as Record<string, unknown>;
+    delete plain.logoData;
+    return NextResponse.json({ bill: plain });
   } catch (error) {
     const zod = zodMessage(error);
     if (zod) return badRequest(zod);

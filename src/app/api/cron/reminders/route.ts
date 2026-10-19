@@ -82,7 +82,11 @@ export async function GET(req: Request) {
             subject: `Ledger · ${ordered.length} reminder${ordered.length === 1 ? "" : "s"}`,
             html: generateReminderDigestEmail(
               user.name || "there",
-              ordered.map((r) => ({ title: r.title, body: r.body }))
+              ordered.map((r) => ({
+                title: r.title,
+                body: r.body,
+                logo: r.logoUrl,
+              }))
             ),
           });
           await Reminder.updateMany(
@@ -96,6 +100,9 @@ export async function GET(req: Request) {
           const subs = await PushSubscription.find({ userId: user._id }).lean();
           if (subs.length > 0) {
             const endpoints = subs.map((s) => s.endpoint);
+            // The first reminder that carries a platform logo becomes the
+            // notification's image — a subscription's logo on the banner.
+            const pushImage = ordered.find((r) => r.logoUrl)?.logoUrl;
             const outcome = await sendPush(
               subs.map((s) => ({ endpoint: s.endpoint, keys: s.keys })),
               {
@@ -105,6 +112,7 @@ export async function GET(req: Request) {
                     ? ordered[0].title
                     : `${ordered.length} things need your attention.`,
                 url: appUrl("/reminders"),
+                image: pushImage,
               }
             );
 

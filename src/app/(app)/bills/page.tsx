@@ -14,6 +14,7 @@ export default async function BillsPage() {
   await connectDB();
 
   const bills = await Bill.find({ userId: user._id })
+    .select("-logoData")
     .sort({ active: -1, nextDueDate: 1 })
     .lean();
 

@@ -62,6 +62,8 @@ export function generateResetPasswordEmail(name: string, token: string) {
 export interface ReminderDigestItem {
   title: string;
   body: string;
+  /** Optional platform logo (absolute URL) shown beside the row. */
+  logo?: string | null;
 }
 
 function escapeHtml(value: string): string {
@@ -85,7 +87,14 @@ export function generateReminderDigestEmail(
     .map(
       (i) => `
         <tr>
-          <td style="padding: 14px 0; border-bottom: 1px solid #e5e5ea;">
+          ${
+            i.logo
+              ? `<td width="52" style="padding: 14px 0 14px 0; vertical-align: top;">
+            <img src="${escapeHtml(i.logo)}" width="40" height="40" alt="" style="display: block; width: 40px; height: 40px; border-radius: 10px; object-fit: cover; border: 1px solid #e5e5ea;" />
+          </td>`
+              : ""
+          }
+          <td style="padding: 14px 0; border-bottom: 1px solid #e5e5ea;${i.logo ? " padding-left: 14px;" : ""}">
             <p style="margin: 0 0 4px; color: #1d1d1f; font-size: 16px; font-weight: 600;">${escapeHtml(
               i.title
             )}</p>
