@@ -191,6 +191,34 @@ export function ProfileView({ user }: { user: ProfileUser }) {
     }
   }
 
+  /** The device reports back within seconds of a push landing; refresh the verdict. */
+  function checkDeliveryAfterSend() {
+    setTimeout(async () => {
+      try {
+        const res = await fetch("/api/notifications/subscribe", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json().catch(() => ({}));
+        const del = data?.delivery ?? null;
+        setDelivery(del);
+        if (!del?.ackAt) {
+          toast("This device hasn't confirmed it yet", {
+            description: "If nothing appears, check Settings → Notifications → Ledger.",
+          });
+          return;
+        }
+        if (del.ackShown) {
+          toast.success("Your device confirmed it arrived");
+        } else if (del.ackError) {
+          toast.error(
+            del.ackError.length > 120 ? `${del.ackError.slice(0, 117)}…` : del.ackError
+          );
+        }
+      } catch {
+        /* ignore */
+      }
+    }, 4000);
+  }
+
   async function sendTestPush() {
     if (testBusy || pushBusy) return;
     setTestBusy(true);
@@ -198,32 +226,7 @@ export function ProfileView({ user }: { user: ProfileUser }) {
     setTestBusy(false);
     if (result.sent > 0) {
       toast.success("Test sent — press Home now to see it arrive");
-      // Give the device a few seconds to report back, then show delivery proof.
-      setTimeout(async () => {
-        try {
-          const res = await fetch("/api/notifications/subscribe", { cache: "no-store" });
-          if (res.ok) {
-            const d = await res.json().catch(() => ({}));
-            setDelivery(d?.delivery ?? null);
-            const del = d?.delivery;
-            if (del?.ackAt) {
-              if (del.ackShown) {
-                toast.success("Your device confirmed the notification arrived ✓");
-              } else if (del.ackError) {
-                toast.error(
-                  del.ackError.length > 120 ? del.ackError.slice(0, 117) + "…" : del.ackError
-                );
-              }
-            } else {
-              toast("Still waiting for this device to acknowledge it", {
-                description: "If nothing shows, check Settings → Notifications → Ledger.",
-              });
-            }
-          }
-        } catch {
-          /* ignore */
-        }
-      }, 4000);
+      checkDeliveryAfterSend();
     } else {
       toast.error(result.error || "The test didn't reach this device");
     }
@@ -269,6 +272,7 @@ export function ProfileView({ user }: { user: ProfileUser }) {
       const test = await runTestPush();
       if (test.sent > 0) {
         toast.success("Test sent — press Home now to see it arrive");
+        checkDeliveryAfterSend();
       } else {
         toast.error(test.error || "The test didn't reach this device");
       }
@@ -473,12 +477,12 @@ export function ProfileView({ user }: { user: ProfileUser }) {
                     <p className="mt-1 text-[12px] leading-snug text-[var(--foreground-secondary)]">
                       {delivery.ackAt
                         ? delivery.ackShown
-                          ? `Received on this device ${formatRelative(delivery.ackAt)} ✓`
-                          : `Device received it ${formatRelative(
-                              delivery.ackAt
-                            )} but couldn't show it${delivery.ackError ? `: ${delivery.ackError}` : "."}`
+                          ? `Received on this device ${formatRelative(delivery.ackAt)}`
+                          : `Device got it ${formatRelative(delivery.ackAt)} but refused to show it${
+                              delivery.ackError ? `: ${delivery.ackError}` : "."
+                            }`
                         : delivery.pushAt
-                        ? `Apple accepted it ${formatRelative(delivery.pushAt)} — no device report yet.`
+                        ? `Apple accepted it ${formatRelative(delivery.pushAt)} — this device hasn't reported it yet.`
                         : null}
                     </p>
                   )}
