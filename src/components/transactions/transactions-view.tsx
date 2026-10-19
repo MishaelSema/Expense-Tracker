@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,18 +39,75 @@ function monthLabel(key: string): string {
   });
 }
 
+const MONTH_SHORT = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+// Derived from monthKey so the period filters always agree with the grouping.
+function yearOf(date: string): number {
+  return Number(monthKey(date).slice(0, 4));
+}
+
+function monthOf(date: string): number {
+  return Number(monthKey(date).slice(5, 7));
+}
+
+function monthName(month: number): string {
+  return new Date(2000, month - 1, 1).toLocaleDateString("en-GB", {
+    month: "long",
+  });
+}
+
 export function TransactionsView({ transactions }: { transactions: TransactionDTO[] }) {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
+  const [year, setYear] = useState<number | "all">("all");
+  const [month, setMonth] = useState<number | "all">("all");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<TransactionDTO | undefined>();
   const [deleting, setDeleting] = useState<TransactionDTO | undefined>();
   const [deleteBusy, setDeleteBusy] = useState(false);
 
+  // Only years and months that actually hold data — a filter that can only
+  // lead to an empty list is noise.
+  const years = useMemo(() => {
+    const set = new Set<number>();
+    for (const t of transactions) set.add(yearOf(t.date));
+    return [...set].sort((a, b) => b - a);
+  }, [transactions]);
+
+  const months = useMemo(() => {
+    const set = new Set<number>();
+    for (const t of transactions) {
+      if (year !== "all" && yearOf(t.date) !== year) continue;
+      set.add(monthOf(t.date));
+    }
+    return [...set].sort((a, b) => a - b);
+  }, [transactions, year]);
+
+  // Everything inside the chosen year/month, before type and search filtering.
+  const inPeriod = useMemo(
+    () =>
+      transactions.filter(
+        (t) =>
+          (year === "all" || yearOf(t.date) === year) &&
+          (month === "all" || monthOf(t.date) === month)
+      ),
+    [transactions, year, month]
+  );
+
+  const periodLabel =
+    month !== "all"
+      ? `${monthName(month)}${year !== "all" ? ` ${year}` : ""}`
+      : year !== "all"
+        ? String(year)
+        : "";
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return transactions.filter((t) => {
+    return inPeriod.filter((t) => {
       if (filter !== "all" && t.type !== filter) return false;
       if (!q) return true;
       return (
@@ -57,17 +115,17 @@ export function TransactionsView({ transactions }: { transactions: TransactionDT
         t.category.toLowerCase().includes(q)
       );
     });
-  }, [transactions, filter, query]);
+  }, [inPeriod, filter, query]);
 
   const totals = useMemo(() => {
-    const income = transactions
+    const income = inPeriod
       .filter((t) => t.type === "income")
       .reduce((s, t) => s + t.amount, 0);
-    const expense = transactions
+    const expense = inPeriod
       .filter((t) => t.type === "expense")
       .reduce((s, t) => s + t.amount, 0);
     return { income, expense };
-  }, [transactions]);
+  }, [inPeriod]);
 
   // Group into months so each statement reads as its own period.
   const groups = useMemo<MonthGroup[]>(() => {
@@ -90,6 +148,22 @@ export function TransactionsView({ transactions }: { transactions: TransactionDT
         return { key, label: monthLabel(key), items, income, expense };
       });
   }, [filtered]);
+
+  /**
+   * Moving to a different year can strand a month that year doesn't hold —
+   * release the month rather than silently filtering to nothing.
+   */
+  function changeYear(next: number | "all") {
+    setYear(next);
+    setMonth((current) => {
+      if (current === "all") return current;
+      const stillAvailable = transactions.some(
+        (t) =>
+          (next === "all" || yearOf(t.date) === next) && monthOf(t.date) === current
+      );
+      return stillAvailable ? current : "all";
+    });
+  }
 
   function openAdd() {
     setEditing(undefined);
@@ -120,9 +194,24 @@ export function TransactionsView({ transactions }: { transactions: TransactionDT
     <div>
       <PageHeader
         title="Activity"
-        subtitle={`${formatCurrency(totals.income, { showSign: true })} in · ${formatCurrency(
-          -totals.expense
-        )} out`}
+        subtitle={
+          <>
+            <span style={{ color: "var(--success)" }}>
+              {formatCurrency(totals.income, { showSign: true })}
+            </span>{" "}
+            in ·{" "}
+            <span style={{ color: "var(--danger)" }}>
+              {formatCurrency(totals.expense)}
+            </span>{" "}
+            out
+            {periodLabel && (
+              <span className="text-[var(--foreground-secondary)]">
+                {" "}
+                · {periodLabel}
+              </span>
+            )}
+          </>
+        }
         action={
           <Button size="md" onClick={openAdd} className="lg:hidden">
             <PlusIcon width={17} height={17} />
@@ -139,7 +228,7 @@ export function TransactionsView({ transactions }: { transactions: TransactionDT
       </div>
 
       {/* Controls */}
-      <div className="flex items-center gap-3 mb-5">
+      <div className="flex items-center gap-3 mb-3">
         <Segmented
           options={[
             { value: "all", label: "All" },
@@ -164,6 +253,49 @@ export function TransactionsView({ transactions }: { transactions: TransactionDT
         </div>
       </div>
 
+      {/* Period: year first, then the months that year actually holds */}
+      <div className="mb-5 space-y-2">
+        {years.length > 1 && (
+          <div
+            role="group"
+            aria-label="Filter by year"
+            className="flex gap-2 overflow-x-auto no-scrollbar"
+          >
+            <FilterChip active={year === "all"} onClick={() => changeYear("all")}>
+              All years
+            </FilterChip>
+            {years.map((value) => (
+              <FilterChip
+                key={value}
+                active={year === value}
+                onClick={() => changeYear(value)}
+              >
+                {value}
+              </FilterChip>
+            ))}
+          </div>
+        )}
+
+        <div
+          role="group"
+          aria-label="Filter by month"
+          className="flex gap-2 overflow-x-auto no-scrollbar"
+        >
+          <FilterChip active={month === "all"} onClick={() => setMonth("all")}>
+            All months
+          </FilterChip>
+          {months.map((value) => (
+            <FilterChip
+              key={value}
+              active={month === value}
+              onClick={() => setMonth(value)}
+            >
+              {MONTH_SHORT[value - 1]}
+            </FilterChip>
+          ))}
+        </div>
+      </div>
+
       {filtered.length === 0 ? (
         <Card>
           <EmptyState
@@ -171,7 +303,9 @@ export function TransactionsView({ transactions }: { transactions: TransactionDT
             description={
               transactions.length === 0
                 ? "Add your first transaction and it will appear here."
-                : "Try a different search or filter."
+                : periodLabel && filter === "all" && !query.trim()
+                  ? `Nothing recorded in ${periodLabel}.`
+                  : "Try a different search or filter."
             }
             action={
               transactions.length === 0 ? (
@@ -195,7 +329,7 @@ export function TransactionsView({ transactions }: { transactions: TransactionDT
                     </span>
                   )}
                   {group.expense > 0 && (
-                    <span className="text-[var(--foreground-secondary)]">
+                    <span className="text-[var(--danger)]">
                       −{formatCurrency(group.expense)}
                     </span>
                   )}
@@ -216,7 +350,7 @@ export function TransactionsView({ transactions }: { transactions: TransactionDT
                         className="shrink-0 text-[15px] font-semibold tabular-nums whitespace-nowrap"
                         style={{
                           color:
-                            t.type === "income" ? "var(--success)" : "var(--foreground)",
+                            t.type === "income" ? "var(--success)" : "var(--danger)",
                         }}
                       >
                         {formatCurrency(t.type === "income" ? t.amount : -t.amount, {
@@ -300,5 +434,36 @@ export function TransactionsView({ transactions }: { transactions: TransactionDT
         </div>
       </Sheet>
     </div>
+  );
+}
+
+/**
+ * Pill for the period filters. The rows scroll horizontally rather than wrap,
+ * so twelve months stay reachable on a phone without turning into a wall of
+ * chrome above the list.
+ */
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "h-8 shrink-0 rounded-full border px-3.5 text-[13px] font-medium transition-colors pressable",
+        active
+          ? "border-transparent bg-[var(--accent)] text-white"
+          : "border-[var(--separator)] bg-[var(--surface)] text-[var(--foreground-secondary)] hover:text-[var(--foreground)]"
+      )}
+    >
+      {children}
+    </button>
   );
 }

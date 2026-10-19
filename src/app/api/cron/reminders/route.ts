@@ -6,6 +6,7 @@ import PushSubscription from "@/models/PushSubscription";
 import { syncRemindersForUser } from "@/lib/reminders";
 import { sendPush } from "@/lib/push";
 import { generateReminderDigestEmail, sendEmail } from "@/lib/mail";
+import { appUrl } from "@/lib/site";
 
 /**
  * Daily reminder job. Vercel Cron calls this once a day; the same endpoint can
@@ -41,7 +42,6 @@ export async function GET(req: Request) {
   try {
     await connectDB();
 
-    const appUrl = (process.env.APP_URL || "").replace(/\/+$/, "");
     const users = await User.find({})
       .select("name email currency preferences")
       .lean();
@@ -103,7 +103,7 @@ export async function GET(req: Request) {
                   ordered.length === 1
                     ? ordered[0].title
                     : `${ordered.length} things need your attention.`,
-                url: `${appUrl}/reminders`,
+                url: appUrl("/reminders"),
               }
             );
 

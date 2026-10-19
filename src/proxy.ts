@@ -11,6 +11,9 @@ const protectedPrefixes = [
   "/notes",
   "/reports",
   "/profile",
+  // Reminder digest emails deep-link here, so an unauthenticated click needs to
+  // remember where it was headed and come back after sign-in.
+  "/reminders",
 ];
 
 const authPages = ["/login", "/register", "/forgot-password"];
@@ -57,6 +60,7 @@ export const config = {
     "/notes/:path*",
     "/reports/:path*",
     "/profile/:path*",
+    "/reminders/:path*",
     "/login",
     "/register",
     "/forgot-password",

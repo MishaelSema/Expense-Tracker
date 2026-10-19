@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { appUrl } from '@/lib/site';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -33,7 +34,7 @@ export async function sendEmail({
 }
 
 export function generateVerificationEmail(name: string, token: string) {
-  const url = `${process.env.APP_URL}/verify-email?token=${token}`;
+  const url = `${appUrl("/verify-email")}?token=${token}`;
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <h1 style="color: #1d1d1f; font-size: 24px; font-weight: 600; margin-bottom: 20px;">Verify your email</h1>
@@ -46,7 +47,7 @@ export function generateVerificationEmail(name: string, token: string) {
 }
 
 export function generateResetPasswordEmail(name: string, token: string) {
-  const url = `${process.env.APP_URL}/reset-password?token=${token}`;
+  const url = `${appUrl("/reset-password")}?token=${token}`;
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <h1 style="color: #1d1d1f; font-size: 24px; font-weight: 600; margin-bottom: 20px;">Reset your password</h1>
@@ -79,7 +80,7 @@ export function generateReminderDigestEmail(
   name: string,
   items: ReminderDigestItem[]
 ) {
-  const url = `${process.env.APP_URL}/reminders`;
+  const url = appUrl("/reminders");
   const rows = items
     .map(
       (i) => `

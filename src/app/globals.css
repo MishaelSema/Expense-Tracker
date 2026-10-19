@@ -84,6 +84,15 @@
   transform: scale(0.985);
 }
 
+/* Horizontal chip rows scroll without leaving a scrollbar track behind */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Apple-tuned typography: tighter tracking on large text, relaxed on small */
 .tracking-apple {
   letter-spacing: -0.015em;
