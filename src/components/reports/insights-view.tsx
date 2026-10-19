@@ -445,43 +445,50 @@ export function InsightsView({ transactions }: { transactions: InsightTransactio
           </div>
         </CardHeader>
         <CardBody className="pt-5">
-          <div className="flex items-end gap-2 sm:gap-4">
-            {series.map((m, i) => {
-              const isActive = i === activeIndex;
-              return (
-                <div
-                  key={`${m.label}-${i}`}
-                  className="flex flex-1 flex-col items-center gap-2"
-                >
-                  <div className="flex h-36 w-full items-end justify-center gap-1 sm:gap-1.5">
-                    <div
-                      className="w-2.5 sm:w-3.5"
-                      style={{
-                        height: barHeight(m.income, scale),
-                        backgroundColor: "var(--success)",
-                      }}
-                    />
-                    <div
-                      className="w-2.5 sm:w-3.5"
-                      style={{
-                        height: barHeight(m.expense, scale),
-                        backgroundColor: "var(--danger)",
-                      }}
-                    />
-                  </div>
-                  <span
-                    className={cn(
-                      "text-[12px]",
-                      isActive
-                        ? "font-medium text-[var(--foreground)]"
-                        : "text-[var(--foreground-secondary)]"
-                    )}
+          {/* Twelve bar pairs at fixed width need ~380px — wider than any
+              phone, which pushed the whole card past the viewport. The bars
+              and gaps below shrink instead, labels stay on one line, and on
+              the narrowest screens this strip scrolls itself rather than the
+              page. */}
+          <div className="overflow-x-auto no-scrollbar">
+            <div className="flex min-w-[264px] items-end gap-1 sm:gap-4">
+              {series.map((m, i) => {
+                const isActive = i === activeIndex;
+                return (
+                  <div
+                    key={`${m.label}-${i}`}
+                    className="flex min-w-0 flex-1 flex-col items-center gap-2"
                   >
-                    {m.label}
-                  </span>
-                </div>
-              );
-            })}
+                    <div className="flex h-36 w-full items-end justify-center gap-1 sm:gap-1.5">
+                      <div
+                        className="min-w-0 flex-1 max-w-3.5"
+                        style={{
+                          height: barHeight(m.income, scale),
+                          backgroundColor: "var(--success)",
+                        }}
+                      />
+                      <div
+                        className="min-w-0 flex-1 max-w-3.5"
+                        style={{
+                          height: barHeight(m.expense, scale),
+                          backgroundColor: "var(--danger)",
+                        }}
+                      />
+                    </div>
+                    <span
+                      className={cn(
+                        "whitespace-nowrap text-[12px]",
+                        isActive
+                          ? "font-medium text-[var(--foreground)]"
+                          : "text-[var(--foreground-secondary)]"
+                      )}
+                    >
+                      {m.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </CardBody>
       </Card>
