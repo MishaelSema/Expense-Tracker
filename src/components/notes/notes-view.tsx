@@ -10,7 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { ArrowRightIcon, EditIcon, PlusIcon, TrashIcon } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
-import { formatRelative, formatDate } from "@/lib/format";
+import { formatRelative, formatDate, parseDate } from "@/lib/format";
 import { TaskForm } from "./task-form";
 import { NoteForm } from "./note-form";
 import type { TodoDTO } from "./task-form";
@@ -39,7 +39,7 @@ const PRIORITY_STYLE: Record<string, React.CSSProperties> = {
 
 function isOverdue(todo: TodoDTO): boolean {
   if (todo.completed || !todo.dueDate) return false;
-  const due = new Date(todo.dueDate);
+  const due = parseDate(todo.dueDate);
   if (isNaN(due.getTime())) return false;
   const today = new Date();
   today.setHours(0, 0, 0, 0);

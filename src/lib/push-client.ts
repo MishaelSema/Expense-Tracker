@@ -12,6 +12,21 @@ export function pushSupported(): boolean {
   );
 }
 
+/** iOS: notifications only work from the Home Screen app, never from Safari. */
+export function isIOS(): boolean {
+  return (
+    typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent)
+  );
+}
+
+export function isInstalled(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
+}
+
 function urlBase64ToUint8Array(base64String: string): BufferSource {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -23,14 +38,30 @@ function urlBase64ToUint8Array(base64String: string): BufferSource {
 
 export async function enablePush(): Promise<{ ok: boolean; error?: string }> {
   if (!pushSupported()) {
-    return { ok: false, error: "This browser doesn't support notifications." };
+    return {
+      ok: false,
+      error: isIOS()
+        ? "On iPhone, notifications only work from the installed app — tap Share → Add to Home Screen, then open Ledger from there."
+        : "This browser doesn't support notifications.",
+    };
+  }
+
+  // iOS exposes the API in Safari too, but the permission is only ever
+  // granted to the installed app — asking there would just fail.
+  if (isIOS() && !isInstalled()) {
+    return {
+      ok: false,
+      error:
+        "On iPhone, tap Share → Add to Home Screen first, then open Ledger from your Home Screen and try again.",
+    };
   }
 
   const permission = await Notification.requestPermission();
   if (permission !== "granted") {
     return {
       ok: false,
-      error: "Notifications are blocked. Allow them in your browser settings and try again.",
+      error:
+        "Notifications are blocked. Allow them in your browser settings (on iPhone: Settings → Notifications → Ledger) and try again.",
     };
   }
 

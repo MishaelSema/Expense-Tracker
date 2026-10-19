@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CheckSquareIcon, EditIcon, TrashIcon } from "@/components/ui/icons";
-import { formatCurrency, formatRelative } from "@/lib/format";
+import { formatCurrency, formatRelative, parseDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export interface DebtItem {
@@ -47,7 +47,7 @@ function dueInfo(debt: DebtItem): { text: string; color: string } {
   if (!debt.dueDate) {
     return { text: "No due date", color: "var(--foreground-secondary)" };
   }
-  const due = new Date(debt.dueDate);
+  const due = parseDate(debt.dueDate);
   if (due < startOfToday()) {
     return { text: `Overdue · ${formatRelative(due)}`, color: "var(--warning)" };
   }

@@ -24,8 +24,24 @@ export function formatNumber(amount: number): string {
   }).format(amount);
 }
 
+/**
+ * Date-only values — a transaction day, a due date — are calendar dates, not
+ * instants. They round-trip through the database as UTC midnight, which prints
+ * the *previous* day in any timezone behind UTC, leaving the server and the
+ * browser disagreeing (and the day sliding out from under the user). Reading
+ * them as local dates means everyone sees the day the record means.
+ */
+export function parseDate(value: Date | string): Date {
+  if (value instanceof Date) return value;
+  if (/^\d{4}-\d{2}-\d{2}(T00:00:00(?:\.000)?Z?)?$/.test(value)) {
+    const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+    return new Date(year, month - 1, day);
+  }
+  return new Date(value);
+}
+
 export function formatDate(date: Date | string, style: "short" | "long" = "short"): string {
-  const d = typeof date === "string" ? new Date(date) : date;
+  const d = parseDate(date);
   return new Intl.DateTimeFormat("en-GB", {
     day: "numeric",
     month: style === "long" ? "long" : "short",
@@ -34,7 +50,7 @@ export function formatDate(date: Date | string, style: "short" | "long" = "short
 }
 
 export function formatRelative(date: Date | string): string {
-  const d = typeof date === "string" ? new Date(date) : date;
+  const d = parseDate(date);
   const now = new Date();
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());

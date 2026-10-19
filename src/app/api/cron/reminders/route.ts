@@ -4,7 +4,7 @@ import User from "@/models/User";
 import Reminder from "@/models/Reminder";
 import PushSubscription from "@/models/PushSubscription";
 import { syncRemindersForUser } from "@/lib/reminders";
-import { sendPush } from "@/lib/push";
+import { sendPush, recordPushOutcome } from "@/lib/push";
 import { generateReminderDigestEmail, sendEmail } from "@/lib/mail";
 import { appUrl } from "@/lib/site";
 
@@ -95,7 +95,8 @@ export async function GET(req: Request) {
         if (wantPush) {
           const subs = await PushSubscription.find({ userId: user._id }).lean();
           if (subs.length > 0) {
-            const { sent, gone } = await sendPush(
+            const endpoints = subs.map((s) => s.endpoint);
+            const outcome = await sendPush(
               subs.map((s) => ({ endpoint: s.endpoint, keys: s.keys })),
               {
                 title: "Ledger reminders",
@@ -107,10 +108,10 @@ export async function GET(req: Request) {
               }
             );
 
-            if (gone.length > 0) {
-              await PushSubscription.deleteMany({ endpoint: { $in: gone } });
-            }
-            if (sent > 0) {
+            // Store the push service's answer and drop dead endpoints.
+            await recordPushOutcome(endpoints, outcome);
+
+            if (outcome.sent > 0) {
               await Reminder.updateMany(
                 { _id: { $in: ids } },
                 { $set: { pushedAt: new Date() } }

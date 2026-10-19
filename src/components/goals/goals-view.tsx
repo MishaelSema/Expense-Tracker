@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EditIcon, TrashIcon } from "@/components/ui/icons";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, parseDate } from "@/lib/format";
 
 export interface GoalItem {
   _id: string;
@@ -50,7 +50,7 @@ function dueState(goal: GoalItem) {
   if (!goal.targetDate) return null;
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const due = new Date(goal.targetDate);
+  const due = parseDate(goal.targetDate);
   const dueStart = new Date(due.getFullYear(), due.getMonth(), due.getDate());
   const days = Math.round(
     (dueStart.getTime() - start.getTime()) / 86400000

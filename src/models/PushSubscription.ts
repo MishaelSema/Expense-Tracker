@@ -5,6 +5,12 @@ export interface IPushSubscription extends Document {
   endpoint: string;
   keys: { p256dh: string; auth: string };
   userAgent?: string;
+  /** When the server last attempted delivery to this endpoint. */
+  lastPushAt?: Date;
+  /** HTTP status the push service answered with (201 = delivered). */
+  lastPushStatus?: number;
+  /** Failure text when delivery didn't go through. */
+  lastPushError?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,6 +25,11 @@ const PushSubscriptionSchema = new Schema<IPushSubscription>(
       auth: { type: String, required: true },
     },
     userAgent: String,
+    // Delivery bookkeeping: the only way to tell what happened to a
+    // notification headed for a device nobody can inspect.
+    lastPushAt: Date,
+    lastPushStatus: Number,
+    lastPushError: String,
   },
   { timestamps: true }
 );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
@@ -65,7 +65,20 @@ export function ProfileView({ user }: { user: ProfileUser }) {
   const [remindersEmail, setRemindersEmail] = useState(user.remindersEmail);
   const [remindersPush, setRemindersPush] = useState(user.remindersPush);
   const [pushBusy, setPushBusy] = useState(false);
+  const [testBusy, setTestBusy] = useState(false);
+  // iOS only delivers notifications from the installed (Home Screen) app, so
+  // whether the hint below applies depends on where this is running.
+  const [ios, setIos] = useState(false);
+  const [installed, setInstalled] = useState(true);
   const [savingName, setSavingName] = useState(false);
+
+  useEffect(() => {
+    setIos(/iPad|iPhone|iPod/.test(navigator.userAgent));
+    setInstalled(
+      window.matchMedia("(display-mode: standalone)").matches ||
+        (navigator as Navigator & { standalone?: boolean }).standalone === true
+    );
+  }, []);
 
   const [pwdOpen, setPwdOpen] = useState(false);
   const [pwd, setPwd] = useState({ current: "", next: "", confirm: "" });
@@ -135,6 +148,30 @@ export function ProfileView({ user }: { user: ProfileUser }) {
     toast.success(next ? "Email reminders on" : "Email reminders off");
   }
 
+  /** Fires one real notification now, so delivery is provable on the spot. */
+  async function runTestPush(): Promise<{ sent: number; error?: string }> {
+    try {
+      const res = await fetch("/api/notifications/test", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { sent: 0, error: data.error || "Couldn't reach this device" };
+      return { sent: Number(data.sent) || 0 };
+    } catch {
+      return { sent: 0, error: "Couldn't reach this device" };
+    }
+  }
+
+  async function sendTestPush() {
+    if (testBusy || pushBusy) return;
+    setTestBusy(true);
+    const result = await runTestPush();
+    setTestBusy(false);
+    if (result.sent > 0) {
+      toast.success("Test notification sent — check your device");
+    } else {
+      toast.error(result.error || "The test didn't reach this device");
+    }
+  }
+
   async function toggleReminderPush() {
     if (pushBusy) return;
 
@@ -171,6 +208,13 @@ export function ProfileView({ user }: { user: ProfileUser }) {
       }
       setRemindersPush(true);
       toast.success("Browser notifications on");
+      // Prove the whole path now instead of waiting for tomorrow's digest.
+      const test = await runTestPush();
+      if (test.sent > 0) {
+        toast.success("Test notification sent — check your device");
+      } else {
+        toast.error(test.error || "The test didn't reach this device");
+      }
     } catch {
       toast.error("Couldn't enable notifications");
     } finally {
@@ -359,7 +403,34 @@ export function ProfileView({ user }: { user: ProfileUser }) {
                 disabled={pushBusy}
               />
             </CardRow>
+            {remindersPush && (
+              <CardRow className="justify-between">
+                <div className="pr-3">
+                  <p className="text-[16px]">Test notification</p>
+                  <p className="text-[13px] text-[var(--foreground-secondary)]">
+                    Sends one to your devices right now
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={sendTestPush}
+                  disabled={testBusy || pushBusy}
+                >
+                  {testBusy ? "Sending…" : "Send"}
+                </Button>
+              </CardRow>
+            )}
           </CardList>
+          {ios && !installed && (
+            <p className="px-4 pb-4 text-[13px] leading-relaxed text-[var(--foreground-secondary)]">
+              On iPhone, notifications only arrive from the installed app. Tap{" "}
+              <span className="font-medium text-[var(--foreground)]">
+                Share → Add to Home Screen
+              </span>
+              , open Ledger from your Home Screen, then switch this on.
+            </p>
+          )}
         </div>
       </Card>
 

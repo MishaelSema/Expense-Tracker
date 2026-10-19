@@ -11,7 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Segmented } from "@/components/ui/segmented";
 import { Sheet } from "@/components/ui/sheet";
 import { SearchIcon, PlusIcon, CloseIcon, EditIcon } from "@/components/ui/icons";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, parseDate } from "@/lib/format";
 import { toast } from "sonner";
 import { TransactionFormSheet } from "./transaction-form-sheet";
 import type { TransactionDTO } from "./types";
@@ -27,7 +27,7 @@ interface MonthGroup {
 }
 
 function monthKey(date: string): string {
-  const d = new Date(date);
+  const d = parseDate(date);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 

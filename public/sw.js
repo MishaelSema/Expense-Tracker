@@ -29,7 +29,11 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || "/reminders";
+  const path = (event.notification.data && event.notification.data.url) || "/reminders";
+  // Absolute on purpose: Client.navigate() resolves relative URLs against the
+  // client's own address, which on iOS can be anything (about:blank, a deep
+  // link) — the origin keeps the tap landing on the right page.
+  const url = new URL(path, self.location.origin).href;
 
   event.waitUntil(
     self.clients
