@@ -629,3 +629,246 @@ export function validateActions(input: unknown, fallbackText = ""): AssistantAct
 
   return out;
 }
+
+/* ---------- Answers: reading the ledger back ---------- */
+
+/** Plain data the route gathers per user; the answer function stays pure. */
+export interface LedgerSnapshot {
+  transactions: {
+    type: "income" | "expense";
+    amount: number;
+    category: string;
+    date: string | Date;
+  }[];
+  bills?: { name: string; amount: number; nextDueDate: string | Date }[];
+  budgets?: {
+    category: string;
+    amount: number;
+    startDate: string | Date;
+    endDate: string | Date;
+  }[];
+  debts?: { type: "owed_to_me" | "i_owe"; person: string; amount: number }[];
+  currency?: string;
+}
+
+/**
+ * A sentence is a question when it is written as one — a question mark or an
+ * interrogative opening. "I owe George 2000 due 25" stays a record: it opens
+ * with "I", so the parser, not the answerer, gets the final word.
+ */
+export function looksLikeQuestion(text: string): boolean {
+  const t = text.trim();
+  if (t.includes("?")) return true;
+  if (
+    /^\s*(?:what|how|when|who|which|why|where|show|tell|list|do|does|did|is|are|was|were|can|could|any)\b/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  return /^\s*(?:balance|owe|owed|owing|debts?|bills?|subscriptions?)\b/i.test(t);
+}
+
+function dueLabel(value: string | Date): string {
+  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+/**
+ * Answers questions straight from the person's own ledger — balance, spending,
+ * money in, bills due, debts, what is left of a budget. Returns null when the
+ * sentence carries no question, so the caller can fall through to recording.
+ */
+export function answerQuestion(
+  text: string,
+  ledger: LedgerSnapshot,
+  today: Date = new Date(),
+  money?: (value: number) => string
+): string | null {
+  if (!looksLikeQuestion(text)) return null;
+  const lower = text.toLowerCase();
+  const currency = (ledger.currency || "XAF").toUpperCase();
+  const fmt =
+    money ?? ((n: number) => `${Math.round(n).toLocaleString("en-US")} ${currency}`);
+  /** Plain figure for repeats — a sentence needs the currency name once. */
+  const bare = (n: number) => Math.round(n).toLocaleString("en-US");
+
+  const dayStart = (offset = 0) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + offset);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+  const thisMonday = (() => {
+    const d = dayStart();
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return d;
+  })();
+
+  let from: Date;
+  let to: Date;
+  let when: string;
+  if (/\btoday\b|\bthis morning\b|\btonight\b/.test(lower)) {
+    from = dayStart();
+    to = dayStart(1);
+    to.setMilliseconds(-1);
+    when = "today";
+  } else if (/\byesterday\b/.test(lower)) {
+    from = dayStart(-1);
+    to = dayStart();
+    to.setMilliseconds(-1);
+    when = "yesterday";
+  } else if (/\bthis week\b/.test(lower)) {
+    from = thisMonday;
+    to = dayStart(1);
+    to.setMilliseconds(-1);
+    when = "this week";
+  } else if (/\blast week\b/.test(lower)) {
+    from = new Date(thisMonday);
+    from.setDate(from.getDate() - 7);
+    to = new Date(thisMonday);
+    to.setMilliseconds(-1);
+    when = "last week";
+  } else if (/\blast month\b/.test(lower)) {
+    from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    to = new Date(today.getFullYear(), today.getMonth(), 1);
+    to.setMilliseconds(-1);
+    when = "last month";
+  } else if (/\ball time\b|\bever\b|\bin total\b|\baltogether\b/.test(lower)) {
+    from = new Date(0);
+    to = dayStart(1);
+    to.setMilliseconds(-1);
+    when = "in total";
+  } else {
+    from = new Date(today.getFullYear(), today.getMonth(), 1);
+    to = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    to.setMilliseconds(-1);
+    when = "this month";
+  }
+  const within = (value: string | Date) => {
+    const d = new Date(value);
+    return d >= from && d <= to;
+  };
+  const sum = (list: { amount: number }[]) => list.reduce((s, x) => s + x.amount, 0);
+
+  // 1. Budgets — "how much is left on my transport budget".
+  if (/\bbudget/.test(lower)) {
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const wanted = scoreCategories(text);
+    const candidates = (ledger.budgets || []).filter(
+      (b) => new Date(b.endDate) >= monthStart && (!wanted || b.category === wanted)
+    );
+    if (candidates.length === 0) {
+      return wanted ? `No ${wanted} budget is set.` : "No budgets are set yet.";
+    }
+    const line = (b: { category: string; amount: number; startDate: string | Date; endDate: string | Date }) => {
+      const spent = sum(
+        (ledger.transactions || []).filter(
+          (t) => t.type === "expense" && t.category === b.category && within(t.date)
+        )
+      );
+      const left = b.amount - spent;
+      const until = dueLabel(b.endDate);
+      return left >= 0
+        ? `${b.category}: ${fmt(left)} left of ${bare(b.amount)}, until ${until}`
+        : `${b.category}: over by ${fmt(-left)} against ${bare(b.amount)}, until ${until}`;
+    };
+    const shown = candidates.slice(0, 3).map(line);
+    const more =
+      candidates.length > 3 ? ` (+${candidates.length - 3} more)` : "";
+    return shown.join(" · ") + more + ".";
+  }
+
+  // 2. Balance — same reading as the dashboard: money in minus money out.
+  if (
+    /\bbalance\b|\bavailable\b|\bhave left\b|\bis left\b|\bdo i have\b|\bhave i got\b|how much (?:money )?do i have/.test(
+      lower
+    )
+  ) {
+    const inc = sum(ledger.transactions.filter((t) => t.type === "income" && within(t.date)));
+    const out = sum(ledger.transactions.filter((t) => t.type === "expense" && within(t.date)));
+    if (inc === 0 && out === 0) return `Nothing recorded ${when}.`;
+    const net = inc - out;
+    return net >= 0
+      ? `${fmt(inc)} in, ${bare(out)} out ${when} — ${bare(net)} left.`
+      : `${fmt(inc)} in, ${bare(out)} out ${when} — you're ${bare(-net)} short.`;
+  }
+
+  // 3. Debts — both directions, named.
+  if (/\bowe|owed|owing|debt|borrow|\blent\b|\blend\b|repay|pay back\b/.test(lower)) {
+    const debts = ledger.debts || [];
+    const mine = debts.filter((d) => d.type === "i_owe");
+    const theirs = debts.filter((d) => d.type === "owed_to_me");
+    const named = (items: { person: string; amount: number }[]) =>
+      items.map((d) => `${d.person} ${fmt(d.amount)}`).join(", ");
+
+    if (/who owes me|owed to me|owe me|\blent\b|borrowed from me|back to me/.test(lower)) {
+      if (theirs.length === 0) return "No one owes you anything right now.";
+      if (theirs.length === 1) return `Owed to you — ${fmt(theirs[0].amount)} from ${theirs[0].person}.`;
+      return `Owed to you — ${fmt(sum(theirs))} in total: ${named(theirs)}.`;
+    }
+    if (/how much do i owe|i owe|my debts|what do i owe|owe anyone|\bowe\b/.test(lower)) {
+      if (mine.length === 0) return "You don't owe anyone right now.";
+      if (mine.length === 1) return `You owe ${fmt(mine[0].amount)} to ${mine[0].person}.`;
+      return `You owe ${fmt(sum(mine))} — ${named(mine)}.`;
+    }
+    const parts: string[] = [];
+    if (theirs.length > 0) parts.push(`Owed to you: ${fmt(sum(theirs))} — ${named(theirs)}`);
+    if (mine.length > 0) parts.push(`You owe: ${fmt(sum(mine))} — ${named(mine)}`);
+    return parts.length > 0 ? parts.join(". ") + "." : "No open debts.";
+  }
+
+  // 4. Bills — what is coming, soonest first.
+  if (/\bbills?\b|\bsubscriptions?\b/.test(lower)) {
+    const bills = (ledger.bills || [])
+      .slice()
+      .sort((a, b) => +new Date(a.nextDueDate) - +new Date(b.nextDueDate));
+    if (bills.length === 0) return "No bills are scheduled.";
+    const overdueStart = dayStart();
+    const upcoming = bills.slice(0, 5);
+    const lines = upcoming.map(
+      (b) =>
+        `${b.name} ${fmt(b.amount)}${
+          new Date(b.nextDueDate) < overdueStart ? " — overdue since" : " due"
+        } ${dueLabel(b.nextDueDate)}`
+    );
+    const more = bills.length > 5 ? ` (+${bills.length - 5} more)` : "";
+    return lines.join(" · ") + more + ".";
+  }
+
+  // 5. Money in.
+  if (/\bearn|income|receiv|got paid|salary|allowance|\bmade\b/.test(lower)) {
+    const incoming = ledger.transactions.filter(
+      (t) => t.type === "income" && within(t.date)
+    );
+    if (incoming.length === 0) return `No money in recorded ${when}.`;
+    const suffix = incoming.length > 1 ? ` across ${incoming.length} entries` : "";
+    return `Money in ${when} — ${fmt(sum(incoming))}${suffix}.`;
+  }
+
+  // 6. Spending — with the category when one is named.
+  if (/\bspent\b|\bspending\b|\bspend\b|\bexpenses?\b/.test(lower)) {
+    const category = scoreCategories(text);
+    const costs = ledger.transactions.filter(
+      (t) => t.type === "expense" && within(t.date) && (!category || t.category === category)
+    );
+    if (costs.length === 0) {
+      return category ? `Nothing spent on ${category} ${when}.` : `Nothing spent ${when}.`;
+    }
+    const total = fmt(sum(costs));
+    if (category) {
+      const suffix = costs.length > 1 ? ` across ${costs.length} entries` : "";
+      return `Spent ${total} on ${category} ${when}${suffix}.`;
+    }
+    const byCategory = new Map<string, number>();
+    costs.forEach((t) =>
+      byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + t.amount)
+    );
+    const top = [...byCategory.entries()].sort((a, b) => b[1] - a[1])[0];
+    const topNote = top ? ` Biggest: ${top[0]} ${fmt(top[1])}.` : "";
+    return `Spent ${total} ${when} across ${costs.length} ${
+      costs.length === 1 ? "entry" : "entries"
+    }.${topNote}`;
+  }
+
+  return null;
+}

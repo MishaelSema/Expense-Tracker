@@ -176,6 +176,7 @@ export function AskLedger({
   const [listening, setListening] = useState(false);
   const [entries, setEntries] = useState<PendingAction[]>([]);
   const [engine, setEngine] = useState<string | null>(null);
+  const [answer, setAnswer] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -184,8 +185,9 @@ export function AskLedger({
     try {
       const raw = window.sessionStorage.getItem(DRAFT_KEY);
       if (!raw) return;
-      const draft = JSON.parse(raw) as { text?: string; entries?: unknown[] };
+      const draft = JSON.parse(raw) as { text?: string; entries?: unknown[]; answer?: unknown };
       if (typeof draft.text === "string" && draft.text) setText(draft.text);
+      if (typeof draft.answer === "string" && draft.answer) setAnswer(draft.answer);
       if (Array.isArray(draft.entries)) {
         const restored = draft.entries
           .filter(isPendingAction)
@@ -201,15 +203,18 @@ export function AskLedger({
   useEffect(() => {
     try {
       const unsaved = entries.filter((entry) => entry.status !== "done");
-      if (!text && unsaved.length === 0) {
+      if (!text && unsaved.length === 0 && !answer) {
         window.sessionStorage.removeItem(DRAFT_KEY);
         return;
       }
-      window.sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ text, entries: unsaved }));
+      window.sessionStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ text, entries: unsaved, answer })
+      );
     } catch {
       /* storage full or blocked — losing a draft is not an error to report */
     }
-  }, [text, entries]);
+  }, [text, entries, answer]);
 
   function toggleMic() {
     if (listening) {
@@ -305,13 +310,17 @@ export function AskLedger({
       }
 
       const actions: AssistantAction[] = Array.isArray(data?.actions) ? data.actions : [];
+      const reply = typeof data?.answer === "string" && data.answer ? data.answer : null;
       setEngine(data?.source === "ai" ? String(data.model || "the model") : null);
+      setAnswer(reply);
 
       if (actions.length === 0) {
-        toast("Nothing to record in that.", {
-          description:
-            "Try: Spent 500 on transport · Budget 1300 a day for transport · Add bill Netflix 2609 due 21",
-        });
+        if (!reply) {
+          toast("Nothing to record in that.", {
+            description:
+              "Try: Spent 500 on transport · What is my balance · Add bill Netflix 2609 due 21",
+          });
+        }
         return;
       }
 
@@ -434,6 +443,17 @@ export function AskLedger({
             {busy ? "Reading…" : "Read it"}
           </Button>
         </div>
+
+        {answer && (
+          <div className="mt-4 rounded-xl border border-[var(--separator)] bg-[var(--surface-secondary)] px-4 py-3">
+            <p className="text-[12px] font-medium uppercase tracking-wide text-[var(--foreground-secondary)]">
+              Ledger
+            </p>
+            <p className="mt-0.5 whitespace-pre-line text-[15px] leading-snug text-[var(--foreground)]">
+              {answer}
+            </p>
+          </div>
+        )}
 
         {examples && examples.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
