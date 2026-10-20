@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { getCurrentUser } from "@/lib/session";
 import { AppShell } from "@/components/layout/app-shell";
+import { FloatingAsk } from "@/components/assistant/floating-ask";
 import { CookieConsent } from "@/components/cookie-consent";
 import { ServiceWorkerRegistrar } from "@/components/notifications/service-worker-registrar";
 import { unreadReminderCount } from "@/lib/reminders";
@@ -20,6 +21,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <AppShell userName={user.name} reminderCount={reminderCount}>
         {children}
       </AppShell>
+      <FloatingAsk currency={user.currency || "XAF"} />
       <CookieConsent />
       <ServiceWorkerRegistrar />
     </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,22 @@ interface PendingAction {
   id: string;
   action: AssistantAction;
   status: "idle" | "saving" | "done";
+}
+
+/**
+ * The sheet unmounts when it closes, so an unsaved sentence and its proposals
+ * are kept here instead — an accidental scrim tap should not cost a typed line.
+ */
+const DRAFT_KEY = "ledger.ask.draft";
+
+function isPendingAction(value: unknown): value is PendingAction {
+  const v = value as PendingAction | null;
+  return Boolean(
+    v &&
+      typeof v.id === "string" &&
+      v.action &&
+      typeof (v.action as { kind?: unknown }).kind === "string"
+  );
 }
 
 const ENDPOINTS: Record<AssistantAction["kind"], string> = {
@@ -141,11 +157,14 @@ export function AskLedger({
   autoFocus = false,
   examples,
   compact = false,
+  bare = false,
 }: {
   currency?: string;
   autoFocus?: boolean;
   examples?: string[];
   compact?: boolean;
+  /** Render without the card chrome, for sitting inside a sheet. */
+  bare?: boolean;
 }) {
   const router = useRouter();
   const [text, setText] = useState("");
@@ -155,6 +174,38 @@ export function AskLedger({
   const [engine, setEngine] = useState<string | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Restore an unsaved draft (the sheet unmounts whenever it closes).
+  useEffect(() => {
+    try {
+      const raw = window.sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as { text?: string; entries?: unknown[] };
+      if (typeof draft.text === "string" && draft.text) setText(draft.text);
+      if (Array.isArray(draft.entries)) {
+        const restored = draft.entries
+          .filter(isPendingAction)
+          .map((entry) => ({ ...entry, status: entry.status === "saving" ? "idle" : entry.status }));
+        if (restored.length > 0) setEntries(restored);
+      }
+    } catch {
+      /* a corrupt draft is not worth surfacing */
+    }
+  }, []);
+
+  // Keep only what is still unsaved; saving everything clears the draft.
+  useEffect(() => {
+    try {
+      const unsaved = entries.filter((entry) => entry.status !== "done");
+      if (!text && unsaved.length === 0) {
+        window.sessionStorage.removeItem(DRAFT_KEY);
+        return;
+      }
+      window.sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ text, entries: unsaved }));
+    } catch {
+      /* storage full or blocked — losing a draft is not an error to report */
+    }
+  }, [text, entries]);
 
   function toggleMic() {
     if (listening) {
@@ -291,14 +342,8 @@ export function AskLedger({
 
   const idleCount = entries.filter((entry) => entry.status === "idle").length;
 
-  return (
-    <Card>
-      <div className="px-5 pt-5 flex items-center gap-2">
-        <SparkleIcon width={18} height={18} className="text-[var(--accent)]" />
-        <h2 className="text-[17px] font-semibold tracking-apple">Ask Ledger</h2>
-      </div>
-
-      <div className="px-5 pb-5 pt-3">
+  const content = (
+    <>
         {!compact && (
           <p className="mb-3 text-[14px] leading-snug text-[var(--foreground-secondary)]">
             Say or type it the way you would say it out loud. Ledger turns it into
@@ -440,7 +485,18 @@ export function AskLedger({
             })}
           </div>
         )}
+    </>
+  );
+
+  if (bare) return <div className="pt-1">{content}</div>;
+
+  return (
+    <Card>
+      <div className="px-5 pt-5 flex items-center gap-2">
+        <SparkleIcon width={18} height={18} className="text-[var(--accent)]" />
+        <h2 className="text-[17px] font-semibold tracking-apple">Ask Ledger</h2>
       </div>
+      <div className="px-5 pb-5 pt-3">{content}</div>
     </Card>
   );
 }

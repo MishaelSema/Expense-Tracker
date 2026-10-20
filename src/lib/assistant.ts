@@ -296,14 +296,39 @@ function guessBillName(text: string): string {
 }
 
 function guessDebtPerson(text: string): string {
-  // "owe"/"lent"/"gave" also introduce the person: "I owe George 2000".
+  // "Pierre yesterday" and "George next week" are a person plus a date, not a
+  // name — peel date words off the end until only the name is left.
+  const trimDate = (name: string) => {
+    const tail =
+      /\s+(?:yesterday|today|tomorrow|tonight|ago|due|next|last|this|coming|since|for|day|days|week|weeks|month|months|year|years|monday|tuesday|wednesday|thursday|friday|saturday|sunday)$/i;
+    let out = name.trim();
+    let previous = "";
+    while (out !== previous) {
+      previous = out;
+      out = out.replace(tail, "").trim();
+    }
+    return out;
+  };
+
+  // "Mom lent me 5000" — the person is the subject of the verb.
+  const subject =
+    /(?:^|[^\p{L}])([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ.'’]*(?:\s[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ.'’]*){0,2})\s+(?:lent|lend|gave|give|owes?|borrow(?:ed)?|repaid?|repay|paid|pays?)\b/iu.exec(
+      text
+    );
+  if (subject) {
+    const name = trimDate(subject[1].trim());
+    const pronoun = /^(i|we|you|they|he|she|it|someone|somebody|nobody)$/i;
+    if (name && !pronoun.test(name) && !/^\d/.test(name)) return name;
+  }
+
+  // "owe/lent/gave" also introduce the person: "I owe George 2000".
   const match =
     /\b(?:from|with|to|owe|owes|lent|gave|repay)\s+(?:me\s+)?([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ.'’]*(?:\s[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ.'’]*){0,2})/i.exec(
       text
     );
   if (!match) return "Someone";
 
-  const person = match[1].trim().replace(/\s+(the|a|an)$/i, "");
+  const person = trimDate(match[1].trim().replace(/\s+(the|a|an)$/i, ""));
   if (/^\d+$/.test(person) || /^(it|them|him|her|back|debt|money)$/i.test(person)) {
     return "Someone";
   }
@@ -383,13 +408,16 @@ function parseClause(clause: string, today: Date): AssistantAction | null {
   // 3. Debt between people.
   if (DEBT_WORDS.test(clause)) {
     const iOwe = /\b(owe|owes|borrow|borrowed|i owe)\b/i.test(clause);
+    // A past date says when it happened, not when it is due — only a date that
+    // is still ahead counts as the due date.
+    const found = findDate(clause, today);
     return {
       kind: "debt",
       type: iOwe ? "i_owe" : "owed_to_me",
       person: guessDebtPerson(clause),
       amount,
       description: clause,
-      dueDate: findDate(clause, today) ?? undefined,
+      dueDate: found && found >= isoDate(today) ? found : undefined,
     };
   }
 

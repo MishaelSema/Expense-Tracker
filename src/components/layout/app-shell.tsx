@@ -28,7 +28,7 @@ export function AppShell({
       <MobileTopBar reminderCount={reminderCount} />
       <main
         id="main"
-        className="mx-auto max-w-[1120px] px-4 sm:px-6 pt-5 pb-28 lg:pb-16"
+        className="mx-auto max-w-[1120px] px-4 sm:px-6 pt-5 pb-36 lg:pb-20"
       >
         {children}
       </main>
