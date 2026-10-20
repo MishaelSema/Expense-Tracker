@@ -143,7 +143,6 @@ const INCOME_KEYWORDS: Record<string, string[]> = {
 const BUDGET_WORDS = /\b(budget|limit|cap)\b/i;
 const PER_DAY = /\b(per day|a day|daily|each day|par jour|jour)\b/i;
 const PER_WEEK = /\b(per week|a week|weekly|each week|par semaine)\b/i;
-const PER_MONTH = /\b(per month|a month|monthly|each month|par mois)\b/i;
 const PER_YEAR = /\b(per year|a year|yearly|annually|par an)\b/i;
 
 const BILL_WORDS =
@@ -255,25 +254,39 @@ function findDate(text: string, today: Date): string | null {
   return null;
 }
 
+/** Whole words only: "pen" must not score inside "spent", "bar" inside "barber". */
+function hasWord(text: string, word: string): boolean {
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${escaped}\\b`, "i").test(text);
+}
+
 function scoreCategories(text: string): string | null {
-  const lower = ` ${text.toLowerCase()} `;
-  let best: { category: string; score: number } | null = null;
+  let best: { category: string; score: number; length: number } | null = null;
 
   for (const [category, entries] of Object.entries(CATEGORY_KEYWORDS)) {
     let score = 0;
+    let length = 0;
     for (const entry of entries) {
-      if (lower.includes(entry.word)) score += entry.weight ?? 2;
+      if (hasWord(text, entry.word)) {
+        score += entry.weight ?? 2;
+        length = Math.max(length, entry.word.length);
+      }
     }
-    if (score > 0 && (!best || score > best.score)) best = { category, score };
+    // Ties go to the more specific word, not to table order.
+    if (
+      score > 0 &&
+      (!best || score > best.score || (score === best.score && length > best.length))
+    ) {
+      best = { category, score, length };
+    }
   }
 
   return best ? best.category : null;
 }
 
 function guessIncomeCategory(text: string): string {
-  const lower = text.toLowerCase();
   for (const [category, words] of Object.entries(INCOME_KEYWORDS)) {
-    if (words.some((word) => lower.includes(word))) return category;
+    if (words.some((word) => hasWord(text, word))) return category;
   }
   return "Other";
 }
@@ -372,7 +385,6 @@ function parseClause(clause: string, today: Date): AssistantAction | null {
 
   const perDay = PER_DAY.test(clause);
   const perWeek = PER_WEEK.test(clause);
-  const perMonth = PER_MONTH.test(clause);
   const perYear = PER_YEAR.test(clause);
 
   // 1. Budget — a stated limit, or a rate with a period attached.
@@ -448,10 +460,16 @@ function parseClause(clause: string, today: Date): AssistantAction | null {
   return null;
 }
 
-/** Splits "spent 500 on food and 300 on transport" into two clauses. */
+/** Words that begin a new money statement in run-on speech. */
+const MONEY_START =
+  /\b(?:ok(?:ay)?|so|well|yeah|um+|uh+|erm?|hmm+|ah+|right|and|then|plus|spent|spend|pay(?:ing|id|s)?|buy|bought|purchase[ds]?|topped up|recharg\w+|used|receiv\w+|earn\w+|won|sold|gave|lent|borrow\w+|owe[sd]?|deposit\w+|withdr\w+|sent|add(?:ed)?(?:\s+bill)?|budget(?:ed)?|costs?)\b/i;
+
+/** "…groceries 400 on transport" — a fresh figure carrying its own preposition. */
+const FIGURE_START = /\s+(?=\d+(?:[.,]\d+)?\s*(?:k\b|mille\b)?\s*(?:on|for|at|of|due)\b)/gi;
+
 function splitClauses(text: string): string[] {
   const rough = text
-    .split(/[\n;]+/)
+    .split(/[\n;.!?]+/)
     .map((part) => part.trim())
     .filter(Boolean);
 
@@ -460,11 +478,46 @@ function splitClauses(text: string): string[] {
     const halves = part.split(/\s+(?:and|et)\s+/i);
     if (halves.length > 1 && halves.every((half) => /\d/.test(half))) {
       out.push(...halves.map((half) => half.trim()).filter(Boolean));
-    } else {
-      out.push(part);
+      continue;
+    }
+
+    // Voice arrives as one run-on line. Cut where a new statement starts, but
+    // only when the side before the cut already keeps a figure of its own —
+    // "the bus I paid 300 yesterday" must never lose "the bus".
+    const cuts: number[] = [];
+    const verbs = new RegExp(MONEY_START.source, "gi");
+    let match: RegExpExecArray | null;
+    while ((match = verbs.exec(part))) {
+      const at = match.index;
+      if (at === 0 || !/\d/.test(part.slice(0, at))) continue;
+      if (!/^\W*(?:\w+\W+){0,7}\d/.test(part.slice(at))) continue;
+      cuts.push(at);
+    }
+    FIGURE_START.lastIndex = 0;
+    while ((match = FIGURE_START.exec(part))) {
+      const at = match.index;
+      if (at === 0 || !/\d/.test(part.slice(0, at))) continue;
+      cuts.push(at);
+    }
+
+    const marks = [...new Set(cuts)].sort((a, b) => a - b);
+    const pieces: string[] = [];
+    let cursor = 0;
+    for (const mark of marks) {
+      pieces.push(part.slice(cursor, mark));
+      cursor = mark;
+    }
+    pieces.push(part.slice(cursor));
+
+    for (const piece of pieces) {
+      const trimmed = piece
+        .replace(/^(?:(?:ok(?:ay)?|so|well|yeah|um+|uh+|erm?|hmm+|ah+|right|and|then|plus)[,\s]+)+/i, "")
+        .replace(/(?:\s+(?:ok(?:ay)?|so|well|yeah|um+|uh+|erm?|hmm+|ah+|right|and|then|plus|i))+\s*$/i, "")
+        .trim();
+      if (trimmed) out.push(trimmed);
     }
   }
-  return out;
+  return out.slice(0, 8);
 }
 
 export function parseWithRules(text: string, today: Date = new Date()): AssistantAction[] {

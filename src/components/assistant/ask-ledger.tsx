@@ -20,6 +20,10 @@ interface SpeechRecognitionEventLike {
   results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>;
 }
 
+interface SpeechRecognitionErrorEventLike {
+  error?: string;
+}
+
 interface SpeechRecognitionLike {
   lang: string;
   interimResults: boolean;
@@ -28,7 +32,7 @@ interface SpeechRecognitionLike {
   stop(): void;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
   onend: (() => void) | null;
-  onerror: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
 }
 
 function getSpeechCtor(): (new () => SpeechRecognitionLike) | null {
@@ -209,8 +213,16 @@ export function AskLedger({
 
   function toggleMic() {
     if (listening) {
-      recognitionRef.current?.stop();
+      const rec = recognitionRef.current;
+      recognitionRef.current = null;
       setListening(false);
+      if (rec) {
+        try {
+          rec.stop();
+        } catch {
+          /* already stopped */
+        }
+      }
       return;
     }
 
@@ -238,16 +250,38 @@ export function AskLedger({
         setText((prev) => (prev ? `${prev} ${heard.trim()}` : heard.trim()));
       }
     };
-    rec.onend = () => setListening(false);
-    rec.onerror = () => {
+    rec.onend = () => {
+      if (recognitionRef.current === rec) recognitionRef.current = null;
       setListening(false);
-      toast.error("I could not hear that. Try again, or type it.");
+    };
+    rec.onerror = (event) => {
+      if (recognitionRef.current === rec) recognitionRef.current = null;
+      setListening(false);
+      // "aborted" fires when the mic is deliberately stopped — not an error.
+      const code = event?.error;
+      if (code !== "aborted" && code !== "no-speech") {
+        toast.error("I could not hear that. Try again, or type it.");
+      }
     };
 
     recognitionRef.current = rec;
     setListening(true);
     rec.start();
   }
+
+  // Closing the sheet unmounts this component; the mic must never outlive it.
+  useEffect(() => {
+    return () => {
+      const rec = recognitionRef.current;
+      recognitionRef.current = null;
+      if (!rec) return;
+      try {
+        rec.stop();
+      } catch {
+        /* already stopped */
+      }
+    };
+  }, []);
 
   async function read(sentence: string) {
     const value = sentence.trim();
