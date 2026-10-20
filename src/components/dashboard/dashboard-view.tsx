@@ -12,6 +12,7 @@ import type { MonthStats } from "@/lib/stats";
 import type { NewsItem } from "@/lib/external-data";
 import { HeadlinesCard } from "@/components/news/headlines-card";
 import { TransactionFormSheet } from "@/components/transactions/transaction-form-sheet";
+import { AskLedger } from "@/components/assistant/ask-ledger";
 
 interface RecentItem {
   id: string;
@@ -130,6 +131,9 @@ export function DashboardView({
           </p>
         )}
       </div>
+
+      {/* Quick capture — say it, then confirm */}
+      <AskLedger compact />
 
       {/* Insight */}
       <Card className="p-5">

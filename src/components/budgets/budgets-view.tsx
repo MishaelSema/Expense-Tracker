@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardBody } from "@/components/ui/card";
 import { Sheet } from "@/components/ui/sheet";
 import { EmptyState } from "@/components/ui/empty-state";
 import { EditIcon, TrashIcon } from "@/components/ui/icons";
-import { formatCurrency, formatDate } from "@/lib/format";
+import { formatCurrency, formatDate, parseDate } from "@/lib/format";
 import { BudgetFormSheet } from "./budget-form-sheet";
 
 export interface BudgetItem {
@@ -104,6 +104,18 @@ export function BudgetsView({ budgets }: { budgets: BudgetItem[] }) {
             const remaining = budget.amount - budget.spent;
             const barWidth = Math.min(100, Math.round(ratio * 100));
 
+            // Short budgets are easier to hold in the head as a daily figure:
+            // "1 300 to get to school and back" is planned, "40 300 a month" is computed.
+            const days =
+              Math.round(
+                (parseDate(budget.endDate).getTime() - parseDate(budget.startDate).getTime()) /
+                  86_400_000
+              ) + 1;
+            const perDay =
+              budget.period !== "yearly" && days > 1 && budget.amount > 0
+                ? Math.round(budget.amount / days)
+                : null;
+
             return (
               <Card key={budget._id}>
                 <CardHeader>
@@ -113,6 +125,11 @@ export function BudgetsView({ budgets }: { budgets: BudgetItem[] }) {
                       {PERIOD_LABELS[budget.period] || budget.period} ·{" "}
                       {formatDate(budget.startDate)} – {formatDate(budget.endDate)}
                     </p>
+                    {perDay !== null && (
+                      <p className="mt-0.5 text-[13px] font-medium text-[var(--foreground)]">
+                        ≈ {formatCurrency(perDay)} a day
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <Button

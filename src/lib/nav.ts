@@ -8,6 +8,7 @@ import {
   NoteIcon,
   UserIcon,
   SparkleIcon,
+  ChatIcon,
   BellIcon,
   RepeatIcon,
   CoinsIcon,
@@ -25,6 +26,7 @@ export const primaryNav = [
 
 /** Destinations reached through the "More" sheet on mobile / menu on desktop. */
 export const secondaryNav = [
+  { href: "/assistant", label: "Ask Ledger", icon: ChatIcon },
   { href: "/reports", label: "Insights", icon: ChartIcon },
   { href: "/reminders", label: "Reminders", icon: BellIcon },
   { href: "/bills", label: "Bills", icon: RepeatIcon },

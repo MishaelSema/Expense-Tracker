@@ -247,6 +247,20 @@ export const DownloadIcon = (p: IconProps) => (
   </Base>
 );
 
+export const MicIcon = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" />
+    <path d="M5 11a7 7 0 0 0 14 0" />
+    <path d="M12 18v3" />
+  </Base>
+);
+
+export const ChatIcon = (p: IconProps) => (
+  <Base {...p}>
+    <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v7a2.5 2.5 0 0 1-2.5 2.5H9l-4 4v-4h-.5A2.5 2.5 0 0 1 4 13.5Z" />
+  </Base>
+);
+
 export const SparkleIcon = (p: IconProps) => (
   <Base {...p}>
     <path d="M12 3.5 13.8 9l5.5 1.8-5.5 1.8L12 18l-1.8-5.4L4.7 10.8 10.2 9 12 3.5Z" />
